@@ -74,8 +74,7 @@ final class GitHubRelease {
     final apk = apks.single;
     final checksumAssets = assets.where((asset) {
       final name = asset.name.toLowerCase();
-      return name == '${apk.name.toLowerCase()}.sha256' ||
-          name == 'sha256sums';
+      return name == '${apk.name.toLowerCase()}.sha256' || name == 'sha256sums';
     }).toList();
     if (checksumAssets.length != 1) {
       throw const UpdateException(
@@ -105,7 +104,9 @@ final class GitHubRelease {
         rawUrl is! String ||
         size is! int ||
         size < 0) {
-      throw const UpdateException('GitHub-ის რელიზის ფაილის მონაცემები არასწორია.');
+      throw const UpdateException(
+        'GitHub-ის რელიზის ფაილის მონაცემები არასწორია.',
+      );
     }
     final uri = Uri.tryParse(rawUrl);
     if (uri == null ||

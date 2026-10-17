@@ -25,6 +25,7 @@ class _ObjectsScreenState extends State<ObjectsScreen> {
   @override
   void initState() {
     super.initState();
+    DataService.dataRevision.addListener(_onDataRestored);
     _init();
     _searchCtrl.addListener(() {
       setState(() => _searchQuery = _searchCtrl.text.toLowerCase());
@@ -33,8 +34,14 @@ class _ObjectsScreenState extends State<ObjectsScreen> {
 
   @override
   void dispose() {
+    DataService.dataRevision.removeListener(_onDataRestored);
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _onDataRestored() async {
+    await _dataService.reloadFromStorage();
+    _refresh();
   }
 
   Future<void> _init() async {

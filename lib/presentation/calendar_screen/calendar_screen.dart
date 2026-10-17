@@ -34,7 +34,19 @@ class _CalendarScreenState extends State<CalendarScreen>
     final now = DateTime.now();
     _displayYear = now.year;
     _displayMonth = now.month;
+    DataService.dataRevision.addListener(_onDataRestored);
     _init();
+  }
+
+  @override
+  void dispose() {
+    DataService.dataRevision.removeListener(_onDataRestored);
+    super.dispose();
+  }
+
+  Future<void> _onDataRestored() async {
+    await _dataService.reloadFromStorage();
+    _loadMonth();
   }
 
   Future<void> _init() async {
@@ -90,8 +102,6 @@ class _CalendarScreenState extends State<CalendarScreen>
       return null;
     }
   }
-
-  bool _isScheduledDay(DateTime date) => _workSchedule.contains(date.weekday);
 
   void _onDayTap(DateTime date) {
     final workDay = _getWorkDayForDate(date);

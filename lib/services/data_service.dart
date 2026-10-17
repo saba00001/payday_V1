@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/payment_transaction_model.dart';
@@ -68,13 +69,16 @@ class _AdvanceAllocation {
   final Map<String, double> byWorkDay;
   final Map<String, double> byAdvance;
 
-  const _AdvanceAllocation({
-    required this.byWorkDay,
-    required this.byAdvance,
-  });
+  const _AdvanceAllocation({required this.byWorkDay, required this.byAdvance});
 }
 
 class DataService {
+  static final ValueNotifier<int> dataRevision = ValueNotifier<int>(0);
+
+  static void notifyDataRestored() {
+    dataRevision.value++;
+  }
+
   final LocalStorageService _storage;
   final _uuid = const Uuid();
 
@@ -92,6 +96,10 @@ class DataService {
   // ── Init ──────────────────────────────────────────────────────────────
   Future<void> init() async {
     await _storage.init();
+    await reloadFromStorage();
+  }
+
+  Future<void> reloadFromStorage() async {
     _objects = _storage.loadObjects();
     _workDays = _storage.loadWorkDays();
     _transactions = _storage.loadTransactions();
@@ -468,7 +476,11 @@ class DataService {
             ? wageRemaining
             : advanceRemaining;
         remainingByAdvance[advance.id] = advanceRemaining - applied;
-        byWorkDay.update(day.id, (amount) => amount + applied, ifAbsent: () => applied);
+        byWorkDay.update(
+          day.id,
+          (amount) => amount + applied,
+          ifAbsent: () => applied,
+        );
         byAdvance.update(
           advance.id,
           (amount) => amount + applied,
@@ -547,7 +559,8 @@ class DataService {
 
     final transactionDate = dateTime ?? DateTime.now();
     final periodId =
-        getPeriodForMonth(transactionDate.year, transactionDate.month)?.id ?? '';
+        getPeriodForMonth(transactionDate.year, transactionDate.month)?.id ??
+        '';
     final tx = PaymentTransactionModel(
       id: _uuid.v4(),
       amount: amount,
@@ -636,12 +649,12 @@ class DataService {
   }
 
   Future<void> clearAll() async {
+    await _storage.clearAll();
     _objects = [];
     _workDays = [];
     _transactions = [];
     _advances = [];
     _periods = [];
-    await _storage.clearAll();
   }
 
   // ── Yesterday's Object ────────────────────────────────────────────────

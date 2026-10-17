@@ -17,7 +17,10 @@ class AdvanceManagementWidget extends StatelessWidget {
     required this.onDelete,
   });
 
-  Future<void> _confirmDelete(BuildContext context, AdvanceBalance balance) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    AdvanceBalance balance,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -92,10 +95,7 @@ class AdvanceManagementWidget extends StatelessWidget {
                     ),
                     child: Text(
                       'ავანსი ჯერ არ არის დამატებული.',
-                      style: TextStyle(
-                        color: AppTheme.textMuted,
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
                     ),
                   )
                 else

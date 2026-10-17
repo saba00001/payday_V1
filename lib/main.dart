@@ -45,8 +45,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MandatoryUpdateGate(
-      enabled:
-          defaultTargetPlatform == TargetPlatform.android && kReleaseMode,
+      enabled: defaultTargetPlatform == TargetPlatform.android && kReleaseMode,
       child: _buildPayDayApp(),
     );
   }

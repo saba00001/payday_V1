@@ -120,10 +120,7 @@ class _AddAdvanceSheetWidgetState extends State<AddAdvanceSheetWidget> {
                 const SizedBox(height: AppTheme.spaceS),
                 const Text(
                   'ავანსი დაიფარება მხოლოდ არჩეულ ობიექტზე შემდეგი ნამუშევარი დღეებით.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textMuted,
-                  ),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
                 ),
                 const SizedBox(height: AppTheme.spaceM),
                 DropdownButtonFormField<String>(

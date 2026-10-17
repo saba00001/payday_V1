@@ -21,7 +21,9 @@ final class AndroidUpdateInstaller implements UpdateInstaller {
   Future<String> getInstalledVersion() async {
     final version = await _channel.invokeMethod<String>('getInstalledVersion');
     if (version == null || version.isEmpty) {
-      throw const UpdateException('აპის დაინსტალირებული ვერსიის წაკითხვა ვერ მოხერხდა.');
+      throw const UpdateException(
+        'აპის დაინსტალირებული ვერსიის წაკითხვა ვერ მოხერხდა.',
+      );
     }
     return version;
   }

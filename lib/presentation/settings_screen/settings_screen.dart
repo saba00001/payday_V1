@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/app_export.dart';
 import '../../routes/app_routes.dart';
 import '../../services/reminder_service.dart';
+import '../../services/backup/backup_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -18,6 +19,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _dataService = DataService(LocalStorageService());
+  late final _backupService = BackupService(_dataService.storage);
 
   // Reminder state
   bool _reminderEnabled = false;
@@ -27,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Permission state
   bool _canScheduleExact = true;
   bool _canUseFullScreenIntent = true;
+  bool _canPostNotifications = true;
 
   // Wage
   double _dailyWage = 80.0;
@@ -37,18 +40,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isAndroid = false;
   bool _testScheduled = false;
   bool _initialized = false;
+  bool _backupBusy = false;
+  DateTime? _lastBackupAt;
+  String? _storageError;
 
   @override
   void initState() {
     super.initState();
+    DataService.dataRevision.addListener(_onDataRestored);
     _isAndroid = !kIsWeb && Platform.isAndroid;
     _init();
   }
 
+  @override
+  void dispose() {
+    DataService.dataRevision.removeListener(_onDataRestored);
+    super.dispose();
+  }
+
+  Future<void> _onDataRestored() async {
+    await _dataService.reloadFromStorage();
+    if (!mounted) return;
+    setState(() {
+      _storageError = null;
+      _lastBackupAt = _dataService.storage.loadLastBackupAt();
+      _reminderEnabled = _dataService.storage.loadReminderEnabled();
+      _reminderHour = _dataService.storage.loadReminderHour();
+      _reminderMinute = _dataService.storage.loadReminderMinute();
+      _dailyWage = _dataService.storage.loadDailyWage();
+      _workSchedule = _dataService.storage.loadWorkSchedule();
+    });
+  }
+
   Future<void> _init() async {
-    await _dataService.init();
-    _loadSettings();
-    if (_isAndroid) _checkPermissions();
+    try {
+      await _dataService.init();
+      _loadSettings();
+      if (_isAndroid) _checkPermissions();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _storageError =
+            'ლოკალური მონაცემების წაკითხვა ვერ მოხერხდა. მონაცემები არ წაიშალა. '
+            'შეარჩიე გარე backup-იდან აღდგენა.';
+        _initialized = true;
+      });
+    }
   }
 
   void _loadSettings() {
@@ -60,32 +97,161 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _reminderMinute = storage.loadReminderMinute();
         _dailyWage = storage.loadDailyWage();
         _workSchedule = storage.loadWorkSchedule();
+        _lastBackupAt = storage.loadLastBackupAt();
         _initialized = true;
       });
     }
   }
 
+  Future<void> _createBackup() async {
+    if (_backupBusy) return;
+    setState(() => _backupBusy = true);
+    try {
+      final createdAt = await _backupService.createExternalBackup();
+      if (!mounted) return;
+      if (createdAt == null) {
+        _showSnack('სარეზერვო ასლის შექმნა გაუქმდა');
+      } else {
+        setState(() => _lastBackupAt = createdAt);
+        _showSnack('სარეზერვო ასლი შენახულია არჩეულ ადგილას');
+      }
+    } catch (error) {
+      if (mounted) _showSnack(_backupError(error));
+    } finally {
+      if (mounted) setState(() => _backupBusy = false);
+    }
+  }
+
+  Future<void> _restoreBackup() async {
+    if (_backupBusy) return;
+    setState(() => _backupBusy = true);
+    try {
+      final backup = await _backupService.selectBackup();
+      if (!mounted || backup == null) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppTheme.surfaceDark,
+          title: const Text(
+            'მონაცემების აღდგენა',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            'ეს შეცვლის აპში არსებულ მონაცემებს backup-ის მონაცემებით '
+            '(${_formatBackupDate(backup.createdAt)}). '
+            'აღდგენამდე მიმდინარე მონაცემების შიდა ასლი შეიქმნება. გაგრძელდეს?',
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('გაუქმება'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('აღდგენა'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      await _backupService.restore(backup);
+      final reminderRestored = await _syncReminderSettings();
+      await _dataService.reloadFromStorage();
+      DataService.notifyDataRestored();
+      if (!mounted) return;
+      setState(() {
+        _storageError = null;
+        _lastBackupAt = _dataService.storage.loadLastBackupAt();
+      });
+      _showSnack(
+        reminderRestored
+            ? 'მონაცემები აღდგა'
+            : 'მონაცემები აღდგა, თუმცა შეხსენება ვერ ჩაირთო. შეამოწმე ნებართვები.',
+      );
+    } catch (error) {
+      if (mounted) _showSnack(_backupError(error));
+    } finally {
+      if (mounted) setState(() => _backupBusy = false);
+    }
+  }
+
+  Future<bool> _syncReminderSettings() async {
+    final storage = _dataService.storage;
+    if (storage.loadReminderEnabled()) {
+      if (!await ReminderService.canPostNotifications()) return false;
+      return ReminderService.scheduleAlarm(
+        hour: storage.loadReminderHour(),
+        minute: storage.loadReminderMinute(),
+      );
+    } else {
+      return ReminderService.cancelAlarm();
+    }
+  }
+
+  String _backupError(Object error) {
+    if (error is FormatException) return error.message.toString();
+    if (error is LocalStorageException) return error.message;
+    return 'სარეზერვო ასლის ოპერაცია ვერ შესრულდა. შეამოწმე თავისუფალი ადგილი და სცადე თავიდან.';
+  }
+
+  String _formatBackupDate(DateTime date) {
+    final local = date.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}.'
+        '${local.month.toString().padLeft(2, '0')}.${local.year} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+
   Future<void> _checkPermissions() async {
     final canExact = await ReminderService.canScheduleExactAlarms();
     final canFsi = await ReminderService.canUseFullScreenIntent();
+    final canNotify = await ReminderService.canPostNotifications();
     if (mounted) {
       setState(() {
         _canScheduleExact = canExact;
         _canUseFullScreenIntent = canFsi;
+        _canPostNotifications = canNotify;
       });
     }
   }
 
+  Future<void> _requestNotificationPermission() async {
+    final granted = await ReminderService.requestNotificationPermission();
+    if (!granted) await ReminderService.openNotificationSettings();
+    await _checkPermissions();
+  }
+
   Future<void> _toggleReminder(bool value) async {
-    setState(() => _reminderEnabled = value);
-    await _dataService.storage.saveReminderEnabled(value);
     if (value) {
-      await ReminderService.scheduleAlarm(
+      var canNotify = await ReminderService.canPostNotifications();
+      if (!canNotify) {
+        canNotify = await ReminderService.requestNotificationPermission();
+      }
+      if (!canNotify) {
+        await _dataService.storage.saveReminderEnabled(false);
+        if (mounted) {
+          setState(() => _reminderEnabled = false);
+          _showSnack('შეხსენებისთვის საჭიროა შეტყობინებების ნებართვა.');
+        }
+        return;
+      }
+      final scheduled = await ReminderService.scheduleAlarm(
         hour: _reminderHour,
         minute: _reminderMinute,
       );
+      await _dataService.storage.saveReminderEnabled(scheduled);
+      if (mounted) {
+        setState(() => _reminderEnabled = scheduled);
+        if (!scheduled) _showSnack('შეხსენების დაგეგმვა ვერ მოხერხდა.');
+      }
     } else {
-      await ReminderService.cancelAlarm();
+      await _dataService.storage.saveReminderEnabled(false);
+      final cancelled = await ReminderService.cancelAlarm();
+      if (mounted) {
+        setState(() => _reminderEnabled = false);
+        if (!cancelled) _showSnack('შეხსენების გაუქმება ვერ მოხერხდა.');
+      }
     }
   }
 
@@ -112,10 +278,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
     await _dataService.storage.saveReminderTime(picked.hour, picked.minute);
     if (_reminderEnabled) {
-      await ReminderService.scheduleAlarm(
+      final scheduled = await ReminderService.scheduleAlarm(
         hour: picked.hour,
         minute: picked.minute,
       );
+      if (!scheduled && mounted) {
+        _showSnack('ახალი შეხსენების დროის დაგეგმვა ვერ მოხერხდა.');
+      }
     }
   }
 
@@ -124,7 +293,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _showSnack('შეხსენება მხოლოდ Android-ზე მუშაობს');
       return;
     }
-    await ReminderService.scheduleTestAlarm();
+    final scheduled = await ReminderService.scheduleTestAlarm();
+    if (!scheduled) {
+      _showSnack('შეხსენების გამოცდა ვერ დაგეგმილა. შეამოწმე ნებართვები.');
+      return;
+    }
     setState(() => _testScheduled = true);
     _showSnack('შეხსენება 3 წამში გამოჩნდება');
     await Future.delayed(const Duration(seconds: 5));
@@ -190,8 +363,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (confirmed == true) {
-      await _dataService.clearAll();
-      _showSnack('ყველა მონაცემი წაიშალა');
+      try {
+        await _backupService.createInternalSnapshot();
+        await _dataService.clearAll();
+        DataService.notifyDataRestored();
+        _showSnack('მონაცემები წაიშალა. შიდა backup შეიქმნა.');
+      } catch (error) {
+        _showSnack(_backupError(error));
+      }
     }
   }
 
@@ -461,6 +640,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           },
         ),
         const Divider(color: AppTheme.glassBorder, height: 1),
+        _PermissionTile(
+          label: 'შეტყობინებების ნებართვა',
+          description: 'Android 13+ — POST_NOTIFICATIONS',
+          isGranted: _canPostNotifications,
+          onOpenSettings: _requestNotificationPermission,
+        ),
+        const Divider(color: AppTheme.glassBorder, height: 1),
         _SettingsTile(
           label: 'შეტყობინების პარამეტრები',
           subtitle: 'Android-ის შეტყობინებები',
@@ -482,6 +668,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: 'მონაცემები',
       icon: Icons.storage_outlined,
       children: [
+        if (_isAndroid) ...[
+          if (_storageError case final String storageError) ...[
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                storageError,
+                style: const TextStyle(color: AppTheme.errorColor),
+              ),
+            ),
+            const Divider(color: AppTheme.glassBorder, height: 1),
+          ],
+          _SettingsTile(
+            label: 'სარეზერვო ასლის შექმნა',
+            subtitle: _backupBusy
+                ? 'მიმდინარეობს…'
+                : _lastBackupAt == null
+                ? 'ბოლო ასლი: არ არის'
+                : 'ბოლო ასლი: ${_formatBackupDate(_lastBackupAt!)}',
+            trailing: _backupBusy
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(
+                    Icons.save_alt_rounded,
+                    color: AppTheme.primary,
+                    size: 20,
+                  ),
+            onTap: _backupBusy ? null : _createBackup,
+          ),
+          const Divider(color: AppTheme.glassBorder, height: 1),
+          _SettingsTile(
+            label: 'სარეზერვო ასლიდან აღდგენა',
+            subtitle: 'აირჩიე ადრე შენახული PayDay backup ფაილი',
+            trailing: const Icon(
+              Icons.restore_rounded,
+              color: AppTheme.primary,
+              size: 20,
+            ),
+            onTap: _backupBusy ? null : _restoreBackup,
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: Text(
+              'აპის წაშლისას პირადი მონაცემები იშლება. ხელახლა დაყენების შემდეგ მონაცემების დასაბრუნებლად შეინახე backup აპის საქაღალდის გარეთ.',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+            ),
+          ),
+          const Divider(color: AppTheme.glassBorder, height: 1),
+        ],
         _SettingsTile(
           label: 'ობიექტები',
           subtitle: 'სამუშაო ობიექტების მართვა',

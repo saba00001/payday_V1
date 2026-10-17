@@ -36,13 +36,23 @@ class AdvanceModel {
       jsonEncode(list.map((advance) => advance.toMap()).toList());
 
   static List<AdvanceModel> decodeList(String json) {
-    try {
-      final decoded = jsonDecode(json) as List<dynamic>;
-      return decoded
-          .map((item) => AdvanceModel.fromMap(item as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return [];
+    final decoded = jsonDecode(json);
+    if (decoded is! List) {
+      throw const FormatException('Advance data is invalid.');
     }
+    return decoded.map((item) {
+      if (item is! Map<String, dynamic> ||
+          item['id'] is! String ||
+          (item['id'] as String).isEmpty ||
+          item['amount'] is! num ||
+          !(item['amount'] as num).isFinite ||
+          (item['amount'] as num) <= 0 ||
+          DateTime.tryParse(item['dateTime'] as String? ?? '') == null ||
+          item['objectId'] is! String ||
+          item['objectName'] is! String) {
+        throw const FormatException('Advance record is invalid.');
+      }
+      return AdvanceModel.fromMap(item);
+    }).toList();
   }
 }

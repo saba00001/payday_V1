@@ -1566,11 +1566,23 @@ void main() {
       expect(tx.note, '');
     });
 
-    test('decodeList returns empty list for malformed JSON', () {
-      expect(WorkDayModel.decodeList('not-json'), isEmpty);
-      expect(WorkObjectModel.decodeList('{invalid}'), isEmpty);
-      expect(PaymentTransactionModel.decodeList(''), isEmpty);
-      expect(SalaryPeriodModel.decodeList('null'), isEmpty);
+    test('decodeList rejects malformed JSON instead of hiding stored data', () {
+      expect(
+        () => WorkDayModel.decodeList('not-json'),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => WorkObjectModel.decodeList('{invalid}'),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => PaymentTransactionModel.decodeList(''),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => SalaryPeriodModel.decodeList('null'),
+        throwsA(isA<FormatException>()),
+      );
     });
 
     test('WorkDayModel.fromMap handles unknown status gracefully', () {

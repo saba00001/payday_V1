@@ -82,13 +82,20 @@ class WorkObjectModel {
       jsonEncode(list.map((e) => e.toMap()).toList());
 
   static List<WorkObjectModel> decodeList(String json) {
-    try {
-      final List<dynamic> decoded = jsonDecode(json) as List<dynamic>;
-      return decoded
-          .map((e) => WorkObjectModel.fromMap(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return [];
+    final decoded = jsonDecode(json);
+    if (decoded is! List) {
+      throw const FormatException('Objects data is invalid.');
     }
+    return decoded.map((item) {
+      if (item is! Map<String, dynamic> ||
+          item['id'] is! String ||
+          (item['id'] as String).isEmpty ||
+          item['name'] is! String ||
+          item['name'] is String && (item['name'] as String).trim().isEmpty ||
+          DateTime.tryParse(item['createdAt'] as String? ?? '') == null) {
+        throw const FormatException('Object record is invalid.');
+      }
+      return WorkObjectModel.fromMap(item);
+    }).toList();
   }
 }

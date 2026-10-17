@@ -104,7 +104,8 @@ flutter build apk --release
 flutter build ios --release
 ```
 
-Android signed releases and mandatory GitHub Release updates are documented in
+Android signed releases, optional GitHub Release updates, and local backup /
+restore are documented in
 [docs/ANDROID_RELEASES.md](docs/ANDROID_RELEASES.md). Android release builds
 must use the production signing key configured through GitHub Actions secrets;
 do not distribute debug-signed release APKs.

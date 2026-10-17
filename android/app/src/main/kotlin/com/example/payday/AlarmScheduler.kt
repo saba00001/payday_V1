@@ -30,26 +30,33 @@ object AlarmScheduler {
      * Cancels any existing real alarm first to prevent duplicates.
      * If the chosen time has already passed today, schedules for tomorrow.
      */
-    fun scheduleAlarm(context: Context, hour: Int, minute: Int) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        val pendingIntent = buildPendingIntent(context, ALARM_REQUEST_CODE) ?: return
+    fun scheduleAlarm(context: Context, hour: Int, minute: Int): Boolean {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            ?: return false
+        val pendingIntent = buildPendingIntent(context, ALARM_REQUEST_CODE) ?: return false
 
         // Cancel existing real alarm before scheduling new one (idempotent).
         try { alarmManager.cancel(pendingIntent) } catch (_: Exception) {}
 
         val triggerMillis = computeNextTriggerMillis(hour, minute)
 
-        setAlarm(alarmManager, triggerMillis, pendingIntent)
+        return setAlarm(alarmManager, triggerMillis, pendingIntent)
     }
 
     /**
      * Cancel the real scheduled alarm.
      * Uses the exact same PendingIntent identity as scheduleAlarm().
      */
-    fun cancelAlarm(context: Context) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        val pendingIntent = buildPendingIntent(context, ALARM_REQUEST_CODE) ?: return
-        try { alarmManager.cancel(pendingIntent) } catch (_: Exception) {}
+    fun cancelAlarm(context: Context): Boolean {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            ?: return false
+        val pendingIntent = buildPendingIntent(context, ALARM_REQUEST_CODE) ?: return false
+        return try {
+            alarmManager.cancel(pendingIntent)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     /**
@@ -89,14 +96,16 @@ object AlarmScheduler {
      * After the test fires, AlarmReceiver calls scheduleNextAlarm() which
      * restores the real alarm correctly.
      */
-    fun scheduleImmediateTest(context: Context) {
-        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+    fun scheduleImmediateTest(context: Context): Boolean {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            ?: return false
         // Use TEST_ALARM_REQUEST_CODE — completely separate from real alarm.
-        val pendingIntent = buildPendingIntent(context, TEST_ALARM_REQUEST_CODE) ?: return
+        val pendingIntent = buildPendingIntent(context, TEST_ALARM_REQUEST_CODE)
+            ?: return false
 
         val triggerTime = System.currentTimeMillis() + 3_000L
 
-        setAlarm(alarmManager, triggerTime, pendingIntent)
+        return setAlarm(alarmManager, triggerTime, pendingIntent)
     }
 
     // ── Private helpers ───────────────────────────────────────────────────
@@ -126,7 +135,11 @@ object AlarmScheduler {
      * Set the alarm using the best available API for the current Android version.
      * Gracefully falls back to inexact alarm if exact alarm permission is denied.
      */
-    private fun setAlarm(alarmManager: AlarmManager, triggerMillis: Long, pendingIntent: PendingIntent) {
+    private fun setAlarm(
+        alarmManager: AlarmManager,
+        triggerMillis: Long,
+        pendingIntent: PendingIntent
+    ): Boolean {
         try {
             when {
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
@@ -152,15 +165,17 @@ object AlarmScheduler {
                     )
                 }
             }
+            return true
         } catch (_: SecurityException) {
             // Exact alarm permission denied — fall back to inexact.
             try {
                 alarmManager.set(AlarmManager.RTC_WAKEUP, triggerMillis, pendingIntent)
+                return true
             } catch (_: Exception) {
-                // System service unavailable — fail silently.
+                return false
             }
         } catch (_: Exception) {
-            // Any other scheduling error — fail silently.
+            return false
         }
     }
 

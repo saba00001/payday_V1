@@ -115,13 +115,30 @@ class WorkDayModel {
       jsonEncode(list.map((e) => e.toMap()).toList());
 
   static List<WorkDayModel> decodeList(String json) {
-    try {
-      final List<dynamic> decoded = jsonDecode(json) as List<dynamic>;
-      return decoded
-          .map((e) => WorkDayModel.fromMap(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return [];
+    final decoded = jsonDecode(json);
+    if (decoded is! List) {
+      throw const FormatException('Work day data is invalid.');
     }
+    return decoded.map((item) {
+      if (item is! Map<String, dynamic> ||
+          item['id'] is! String ||
+          (item['id'] as String).isEmpty ||
+          DateTime.tryParse(item['date'] as String? ?? '') == null ||
+          DateTime.tryParse(item['createdAt'] as String? ?? '') == null ||
+          DateTime.tryParse(item['updatedAt'] as String? ?? '') == null ||
+          item['status'] is! String ||
+          !const {
+            'worked',
+            'notWorked',
+            'scheduled',
+            'unmarked',
+          }.contains(item['status']) ||
+          item['dailyWage'] is! num ||
+          !(item['dailyWage'] as num).isFinite ||
+          (item['dailyWage'] as num) < 0) {
+        throw const FormatException('Work day record is invalid.');
+      }
+      return WorkDayModel.fromMap(item);
+    }).toList();
   }
 }

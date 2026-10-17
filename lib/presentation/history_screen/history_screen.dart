@@ -34,7 +34,19 @@ class _HistoryScreenState extends State<HistoryScreen>
   @override
   void initState() {
     super.initState();
+    DataService.dataRevision.addListener(_onDataRestored);
     _init();
+  }
+
+  @override
+  void dispose() {
+    DataService.dataRevision.removeListener(_onDataRestored);
+    super.dispose();
+  }
+
+  Future<void> _onDataRestored() async {
+    await _dataService.reloadFromStorage();
+    _refresh();
   }
 
   Future<void> _init() async {

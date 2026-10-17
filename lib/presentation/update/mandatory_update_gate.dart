@@ -40,6 +40,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
   double? _downloadProgress;
   bool _openingPermissionSettings = false;
   bool _checkingAgain = false;
+  String? _dismissedTag;
 
   @override
   void initState() {
@@ -62,7 +63,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
     if (_openingPermissionSettings) {
       _openingPermissionSettings = false;
       _installVerifiedApk();
-    } else if (_state == _GateState.installerLaunched) {
+    } else {
       _checkForUpdate();
     }
   }
@@ -82,15 +83,16 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
         _state = result.updateRequired
             ? _GateState.updateRequired
             : _GateState.checking;
+        if (!result.updateRequired || _dismissedTag != result.release.tagName) {
+          _error = null;
+        }
       });
-      if (!result.updateRequired) {
-        setState(() {});
-      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _state = _GateState.failed;
-        _error = _localizedError(error);
+        _checkResult = null;
+        _error = null;
       });
     } finally {
       _checkingAgain = false;
@@ -167,189 +169,124 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.enabled || _checkResult != null && !_checkResult!.updateRequired) {
+    final result = _checkResult;
+    final shouldShowOffer =
+        widget.enabled &&
+        result != null &&
+        result.updateRequired &&
+        _dismissedTag != result.release.tagName;
+    if (!shouldShowOffer) {
       return widget.child;
     }
-    final result = _checkResult;
-    final title = switch (_state) {
-      _GateState.checking => 'განახლების შემოწმება',
-      _GateState.failed => 'განახლება ვერ შემოწმდა',
-      _GateState.downloading => 'განახლება იტვირთება',
-      _GateState.permissionRequired => 'საჭიროა ინსტალაციის ნებართვა',
-      _GateState.installerLaunched => 'დაასრულე განახლება',
-      _GateState.updateRequired => 'საჭიროა PayDay-ის განახლება',
-    };
-
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4CAF95),
-          brightness: Brightness.dark,
-        ),
-      ),
-      home: Scaffold(
-        backgroundColor: const Color(0xFF0B1220),
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
+    return Stack(
+      children: [
+        widget.child,
+        Positioned(
+          left: 12,
+          right: 12,
+          top: 8,
+          child: SafeArea(
+            child: Material(
+              elevation: 12,
+              color: const Color(0xFF101A27),
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.system_update_alt_rounded,
-                      size: 58,
-                      color: Color(0xFF4CAF95),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (_state == _GateState.checking)
-                      const Center(child: CircularProgressIndicator())
-                    else ...[
-                      if (result != null) ...[
-                        _VersionLine(
-                          label: 'დაყენებული ვერსია',
-                          value: result.installedVersion,
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.system_update_alt_rounded,
+                          color: Color(0xFF10B981),
                         ),
-                        const SizedBox(height: 8),
-                        _VersionLine(
-                          label: 'უახლესი ვერსია',
-                          value: result.release.tagName,
-                        ),
-                        if (result.release.notes.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          const Text(
-                            'რა შეიცვალა',
-                            style: TextStyle(
-                              fontSize: 15,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _state == _GateState.installerLaunched
+                                ? 'დაასრულე განახლება'
+                                : _state == _GateState.permissionRequired
+                                ? 'საჭიროა ინსტალაციის ნებართვა'
+                                : 'PayDay ${result.release.tagName} ხელმისაწვდომია',
+                            style: const TextStyle(
+                              color: Colors.white,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Container(
-                            constraints: const BoxConstraints(maxHeight: 220),
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withAlpha(13),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.white12),
-                            ),
-                            child: SingleChildScrollView(
-                              child: SelectableText(
-                                result.release.notes,
-                                style: const TextStyle(
-                                  height: 1.45,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ),
+                        ),
+                        IconButton(
+                          tooltip: 'მოგვიანებით',
+                          onPressed: () => setState(
+                            () => _dismissedTag = result.release.tagName,
                           ),
-                        ],
-                      ],
-                      if (_error != null) ...[
-                        const SizedBox(height: 18),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Color(0xFFFFB4AB)),
+                          icon: const Icon(Icons.close, color: Colors.white70),
                         ),
                       ],
-                      if (_state == _GateState.downloading) ...[
-                        const SizedBox(height: 18),
-                        LinearProgressIndicator(value: _downloadProgress),
-                        const SizedBox(height: 8),
-                        Text(
-                          _downloadProgress == null
-                              ? 'ჩამოტვირთვა მიმდინარეობს…'
-                              : '${(_downloadProgress! * 100).clamp(0, 100).round()}%',
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                      if (_state == _GateState.permissionRequired) ...[
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Android-ის პარამეტრებში ჩართე PayDay-იდან აპების ინსტალაციის ნებართვა. შემდეგ ავტომატურად გაგრძელდება ინსტალაცია.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                      if (_state == _GateState.installerLaunched) ...[
-                        const SizedBox(height: 16),
-                        const Text(
-                          'დაასრულე განახლება Android-ის ინსტალერის ეკრანზე. აპის ხელახლა გახსნისას ვერსია თავიდან შემოწმდება.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      if (_state == _GateState.updateRequired)
-                        FilledButton.icon(
-                          onPressed: _downloadAndInstall,
-                          icon: const Icon(Icons.download_rounded),
-                          label: const Text('ჩამოტვირთვა და განახლება'),
-                        )
-                      else if (_state == _GateState.downloading)
-                        const Center(child: CircularProgressIndicator())
-                      else if (_state == _GateState.permissionRequired)
-                        FilledButton(
-                          onPressed: _openPermissionSettings,
-                          child: const Text(
-                            'უცნობი წყაროების ნებართვის ჩართვა',
-                          ),
-                        )
-                      else
-                        OutlinedButton.icon(
-                          onPressed: _checkForUpdate,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: Text(
-                            _state == _GateState.installerLaunched
-                                ? 'ვერსიის ხელახლა შემოწმება'
-                                : 'ხელახლა ცდა',
-                          ),
-                        ),
+                    ),
+                    Text(
+                      'დაყენებულია ${result.installedVersion} · ახალი ${result.release.tagName}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    if (result.release.notes.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        result.release.notes,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white60),
+                      ),
                     ],
+                    if (_error case final String error) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        error,
+                        style: const TextStyle(color: Color(0xFFFFB4AB)),
+                      ),
+                    ],
+                    if (_state == _GateState.downloading) ...[
+                      const SizedBox(height: 12),
+                      LinearProgressIndicator(value: _downloadProgress),
+                    ],
+                    if (_state == _GateState.permissionRequired) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Android-ის პარამეტრებში ჩართე PayDay-იდან აპების ინსტალაციის ნებართვა.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    if (_state == _GateState.downloading)
+                      const Center(child: CircularProgressIndicator())
+                    else if (_state == _GateState.permissionRequired)
+                      FilledButton(
+                        onPressed: _openPermissionSettings,
+                        child: const Text('ნებართვის ჩართვა'),
+                      )
+                    else
+                      FilledButton.icon(
+                        onPressed: _state == _GateState.installerLaunched
+                            ? _checkForUpdate
+                            : _downloadAndInstall,
+                        icon: Icon(
+                          _state == _GateState.installerLaunched
+                              ? Icons.refresh_rounded
+                              : Icons.download_rounded,
+                        ),
+                        label: Text(
+                          _state == _GateState.installerLaunched
+                              ? 'ვერსიის შემოწმება'
+                              : 'ჩამოტვირთვა და განახლება',
+                        ),
+                      ),
                   ],
                 ),
               ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
-}
-
-class _VersionLine extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _VersionLine({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(label, style: const TextStyle(color: Colors.white60)),
-      const SizedBox(width: 12),
-      Flexible(
-        child: Text(
-          value,
-          textAlign: TextAlign.end,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-      ),
-    ],
-  );
 }

@@ -64,15 +64,21 @@ class PaymentTransactionModel {
       jsonEncode(list.map((e) => e.toMap()).toList());
 
   static List<PaymentTransactionModel> decodeList(String json) {
-    try {
-      final List<dynamic> decoded = jsonDecode(json) as List<dynamic>;
-      return decoded
-          .map(
-            (e) => PaymentTransactionModel.fromMap(e as Map<String, dynamic>),
-          )
-          .toList();
-    } catch (_) {
-      return [];
+    final decoded = jsonDecode(json);
+    if (decoded is! List) {
+      throw const FormatException('Payment data is invalid.');
     }
+    return decoded.map((item) {
+      if (item is! Map<String, dynamic> ||
+          item['id'] is! String ||
+          (item['id'] as String).isEmpty ||
+          item['amount'] is! num ||
+          !(item['amount'] as num).isFinite ||
+          (item['amount'] as num) < 0 ||
+          DateTime.tryParse(item['dateTime'] as String? ?? '') == null) {
+        throw const FormatException('Payment record is invalid.');
+      }
+      return PaymentTransactionModel.fromMap(item);
+    }).toList();
   }
 }

@@ -345,7 +345,7 @@ void main() {
   });
 
   group('Mandatory update gate', () {
-    testWidgets('blocks normal app after update check failure and retries', (
+    testWidgets('offline check keeps app usable and retries when resumed', (
       tester,
     ) async {
       final service = _FakeMandatoryService()..checkFailuresRemaining = 1;
@@ -361,13 +361,13 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('normal app'), findsNothing);
-      expect(find.text('განახლება ვერ შემოწმდა'), findsOneWidget);
-      await tester.tap(find.text('ხელახლა ცდა'));
+      expect(find.text('normal app'), findsOneWidget);
+      expect(find.text('განახლება ვერ შემოწმდა'), findsNothing);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('normal app'), findsNothing);
+      expect(find.text('normal app'), findsOneWidget);
       expect(find.text('ჩამოტვირთვა და განახლება'), findsOneWidget);
     });
 

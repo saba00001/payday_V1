@@ -170,6 +170,29 @@ class ReminderService {
     }
   }
 
+  static Future<bool> canPostNotifications() async {
+    if (!_isAndroid) return true;
+    try {
+      return await _channel.invokeMethod<bool>('canPostNotifications') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  static Future<bool> requestNotificationPermission() async {
+    if (!_isAndroid) return true;
+    try {
+      return await _channel.invokeMethod<bool>('requestPostNotifications') ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   // ── Settings Navigation ───────────────────────────────────────────────
 
   static Future<void> openExactAlarmSettings() async {

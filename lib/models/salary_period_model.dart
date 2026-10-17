@@ -39,14 +39,26 @@ class SalaryPeriodModel {
       jsonEncode(list.map((e) => e.toMap()).toList());
 
   static List<SalaryPeriodModel> decodeList(String json) {
-    try {
-      final List<dynamic> decoded = jsonDecode(json) as List<dynamic>;
-      return decoded
-          .map((e) => SalaryPeriodModel.fromMap(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return [];
+    final decoded = jsonDecode(json);
+    if (decoded is! List) {
+      throw const FormatException('Salary period data is invalid.');
     }
+    return decoded.map((item) {
+      if (item is! Map<String, dynamic> ||
+          item['id'] is! String ||
+          (item['id'] as String).isEmpty ||
+          item['year'] is! int ||
+          item['month'] is! int ||
+          (item['month'] as int) < 1 ||
+          (item['month'] as int) > 12 ||
+          item['dailyWage'] is! num ||
+          !(item['dailyWage'] as num).isFinite ||
+          (item['dailyWage'] as num) < 0 ||
+          DateTime.tryParse(item['createdAt'] as String? ?? '') == null) {
+        throw const FormatException('Salary period record is invalid.');
+      }
+      return SalaryPeriodModel.fromMap(item);
+    }).toList();
   }
 
   SalaryPeriodModel copyWith({

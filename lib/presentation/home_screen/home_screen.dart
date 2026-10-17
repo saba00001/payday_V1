@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen>
   // TODO: Replace with Riverpod/Bloc for production
   final _dataService = DataService(LocalStorageService());
   bool _initialized = false;
+  String? _loadError;
   bool _markingWorked = false; // Guard against rapid double-tap
 
   WorkObjectModel? _todayObject;
@@ -43,16 +44,38 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
+    DataService.dataRevision.addListener(_onDataRestored);
     _init();
   }
 
-  Future<void> _init() async {
-    await _dataService.init();
+  @override
+  void dispose() {
+    DataService.dataRevision.removeListener(_onDataRestored);
+    super.dispose();
+  }
+
+  Future<void> _onDataRestored() async {
+    await _dataService.reloadFromStorage();
     _refresh();
+  }
+
+  Future<void> _init() async {
+    try {
+      await _dataService.init();
+      _refresh();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadError =
+            'ლოკალური მონაცემების წაკითხვა ვერ მოხერხდა. '
+            'მონაცემები არ წაიშალა. გახსენი პარამეტრები და აღადგინე backup.';
+      });
+    }
   }
 
   void _refresh() {
     if (!mounted) return;
+    _loadError = null;
     final now = DateTime.now();
     final todayWd = _dataService.getWorkDayForDate(now);
     WorkObjectModel? todayObj;
@@ -233,9 +256,9 @@ class _HomeScreenState extends State<HomeScreen>
   void _showAddAdvance() {
     final objects = _dataService.activeObjects;
     if (objects.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ჯერ დაამატე აქტიური ობიექტი')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ჯერ დაამატე აქტიური ობიექტი')),
+      );
       return;
     }
     showModalBottomSheet(
@@ -297,9 +320,37 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           const HomeBackgroundWidget(),
           if (!_initialized)
-            const Center(
-              child: CircularProgressIndicator(color: AppTheme.primary),
-            )
+            _loadError == null
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppTheme.primary),
+                  )
+                : Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: AppTheme.errorColor,
+                            size: 44,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _loadError!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton(
+                            onPressed: () =>
+                                context.go(AppRoutes.settingsScreen),
+                            child: const Text('პარამეტრები / backup'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
           else
             SafeArea(
               bottom: false,

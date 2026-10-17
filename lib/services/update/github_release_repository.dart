@@ -9,7 +9,10 @@ abstract interface class ReleaseRepository {
 }
 
 final class GitHubReleaseRepository implements ReleaseRepository {
-  static const _defaultRepository = String.fromEnvironment('UPDATE_REPOSITORY');
+  static const _defaultRepository = String.fromEnvironment(
+    'UPDATE_REPOSITORY',
+    defaultValue: 'saba00001/payday_V1',
+  );
   final Dio _dio;
   final String _repository;
 

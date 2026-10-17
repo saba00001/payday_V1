@@ -1,10 +1,11 @@
-# Android signed releases and mandatory updates
+# Android releases, updates, and local backups
 
-PayDay checks GitHub's public `releases/latest` endpoint before showing the
-normal app interface in Android release builds. Debug, profile, and non-Android
-builds do not run the update gate. A failed release lookup keeps the app blocked
-and offers retry; a release without a valid APK and matching SHA-256 asset is
-not installable.
+PayDay checks `saba00001/payday_V1` for a stable GitHub Release when an Android
+release build starts. This check runs in the background: if GitHub is offline,
+the normal app remains available and all stored data continues to work locally.
+When a newer release exists, PayDay offers an update without blocking app use.
+APK downloads still require a valid SHA-256 checksum before Android's installer
+is opened.
 
 ## Existing Android identity
 
@@ -42,9 +43,8 @@ in PowerShell. Paste the result only into GitHub's secret field.
 
 `pubspec.yaml` uses Flutter's `major.minor.patch+buildNumber` format:
 
-```yaml
-version: 1.0.0+1
-```
+For example, the current project version can be found directly in `pubspec.yaml`.
+Do not reset the version or build number.
 
 For every release:
 
@@ -95,8 +95,8 @@ Android requires the user to allow package installs from PayDay. The app opens
 the system permission page and starts Android's normal package installer only
 after the user grants permission. It does not silently install APKs. On
 reopening or returning from the installer, the app reads the installed version
-from Android again; if installation was cancelled or failed, the mandatory
-update screen remains.
+from Android again; if installation was cancelled or failed, the update offer
+remains available.
 
 APK and checksum assets must be hosted by the same GitHub repository's
 `releases/download/<tag>/` URL, over HTTPS. Redirects are restricted to
@@ -105,6 +105,41 @@ GitHub's release asset hosts. The checksum asset must be named
 filename) or `SHA256SUMS` (containing a matching entry). An absent, malformed,
 or mismatching checksum fails closed.
 
-The release gate depends on GitHub being reachable on each Android release
-app launch. Offline launches cannot proceed into the app; the update screen
-provides retry, not a bypass.
+If GitHub is unreachable or the release response cannot be validated, the app
+continues normally and checks again the next time it starts or resumes. No
+update is claimed to have succeeded until Android reports the installed
+version after the system installer returns.
+
+## Local data and backup recovery
+
+PayDay continues to keep objects, workdays, salary periods, advances, payments,
+reminder settings, and work schedule in Android app-private
+`SharedPreferences`. Normal app updates preserve this private data as long as
+the application ID and signing key remain the same. A corrupt stored record is
+reported instead of being silently treated as an empty collection.
+
+In **Settings → Data**, use **Create backup** to save a versioned JSON backup
+through Android's system file picker. Choose a location outside PayDay's
+private app folder (for example, Documents, Downloads, or a user-selected
+cloud drive) if the file must survive uninstalling the app. To restore after
+reinstalling, install PayDay, open Settings → Data → **Restore from backup**,
+select the `.paydaybackup` file, and confirm replacement. The file format,
+records, unique IDs, and SHA-256 integrity digest are checked before any
+current preferences are changed. The app also stores a limited set of
+pre-restore/pre-clear snapshots in its private files directory. A private
+snapshot is removed when the app is uninstalled and is not a substitute for an
+external backup.
+
+Android normally removes app-private data when the app is uninstalled. Keep an
+external backup if you need to restore data after uninstalling or changing
+devices. A restore replaces the app's current data; PayDay creates an internal
+snapshot first and rolls back if writing or verification fails.
+
+## Reminders
+
+Reminders use Android's local AlarmManager and work without internet access.
+Changing the reminder time cancels and replaces the same alarm, and the
+receiver restores it after reboot, time changes, timezone changes, and an app
+update. Android 12+ exact-alarm access and Android 13+ notification permission
+can be managed in Settings. Android may still restrict exact timing or
+notifications when a permission is denied or battery policies intervene.
