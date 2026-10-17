@@ -1,15 +1,16 @@
+```yaml
 name: Android signed release
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to update
+        description: New release tag
         required: true
-        default: v1.0.2
+        default: v1.0.3
         type: string
       source_ref:
-        description: Branch or commit containing the repaired app source
+        description: Branch or commit containing the release source
         required: true
         default: main
         type: string
@@ -20,11 +21,31 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_ref || inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref }}
+
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          APP_VERSION="$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '\r')"
+
+          if [ "$RELEASE_TAG" != "v1.0.3" ] || [ "$APP_VERSION" != "1.0.3+5" ]; then
+            echo "::error::Expected tag v1.0.3 and pubspec version 1.0.3+5."
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Release v1.0.3 already exists. This workflow creates new releases only."
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
 
       - name: Require signing secrets
         env:
@@ -35,22 +56,7 @@ jobs:
         run: |
           if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || \
              [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "::error::Configure all PAYDAY Android signing secrets before publishing a release."
-            exit 1
-          fi
-
-      - name: Validate release tag against pubspec
-        env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          APP_VERSION="$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '\r')"
-          if [ "$RELEASE_TAG" != "v1.0.2" ] || [ "$APP_VERSION" != "1.0.2+4" ]; then
-            echo "::error::This workflow only updates existing v1.0.2 from pubspec version 1.0.2+4."
-            exit 1
-          fi
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "::error::The existing GitHub Release $RELEASE_TAG was not found; this workflow never creates releases."
+            echo "::error::Configure all PAYDAY Android signing secrets."
             exit 1
           fi
 
@@ -76,7 +82,18 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/payday-release.jks"
           test -s "$RUNNER_TEMP/payday-release.jks"
 
-      - name: Build signed universal APK
+      - name: Verify signing key
+        env:
+          PAYDAY_KEYSTORE_PATH: ${{ runner.temp }}/payday-release.jks
+          PAYDAY_KEYSTORE_PASSWORD: ${{ secrets.PAYDAY_KEYSTORE_PASSWORD }}
+          PAYDAY_KEY_ALIAS: ${{ secrets.PAYDAY_KEY_ALIAS }}
+        run: |
+          keytool -list \
+            -keystore "$PAYDAY_KEYSTORE_PATH" \
+            -storepass "$PAYDAY_KEYSTORE_PASSWORD" \
+            -alias "$PAYDAY_KEY_ALIAS"
+
+      - name: Build signed APK
         env:
           PAYDAY_KEYSTORE_PATH: ${{ runner.temp }}/payday-release.jks
           PAYDAY_KEYSTORE_PASSWORD: ${{ secrets.PAYDAY_KEYSTORE_PASSWORD }}
@@ -87,57 +104,62 @@ jobs:
           flutter build apk --release \
             --dart-define=UPDATE_REPOSITORY="$UPDATE_REPOSITORY"
 
-      - name: Create release checksum
+      - name: Verify signature continuity
         env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/previous-release"
+          gh release download v1.0.2 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "PayDay-v1.0.2.apk" \
+            --dir "$RUNNER_TEMP/previous-release"
+
+          OLD_APK="$RUNNER_TEMP/previous-release/PayDay-v1.0.2.apk"
+          NEW_APK="build/app/outputs/flutter-apk/app-release.apk"
+
+          test -s "$OLD_APK"
+          test -s "$NEW_APK"
+
+          BUILD_TOOLS_VERSION="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          APKSIGNER="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner"
+          AAPT="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt"
+
+          OLD_CERT="$("$APKSIGNER" verify --print-certs "$OLD_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
+          NEW_CERT="$("$APKSIGNER" verify --print-certs "$NEW_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
+
+          if [ -z "$OLD_CERT" ] || [ "$OLD_CERT" != "$NEW_CERT" ]; then
+            echo "::error::The new APK signing certificate differs from v1.0.2."
+            exit 1
+          fi
+
+          OLD_CODE="$("$AAPT" dump badging "$OLD_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
+          NEW_CODE="$("$AAPT" dump badging "$NEW_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
+
+          if [ -z "$OLD_CODE" ] || [ -z "$NEW_CODE" ] || [ "$NEW_CODE" -le "$OLD_CODE" ]; then
+            echo "::error::The new APK version code must be higher than v1.0.2."
+            exit 1
+          fi
+
+      - name: Prepare release assets
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           APK_NAME="PayDay-${RELEASE_TAG}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "$RUNNER_TEMP/$APK_NAME"
           cd "$RUNNER_TEMP"
           sha256sum "$APK_NAME" > "$APK_NAME.sha256"
 
-      - name: Verify signature continuity and Android version code
+      - name: Create new GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_REF: ${{ inputs.source_ref }}
         run: |
-          mkdir -p "$RUNNER_TEMP/previous-release"
-          gh release download "$RELEASE_TAG" \
-            --pattern "PayDay-${RELEASE_TAG}.apk" \
-            --dir "$RUNNER_TEMP/previous-release"
-          PREVIOUS_APK="$RUNNER_TEMP/previous-release/PayDay-${RELEASE_TAG}.apk"
-          NEW_APK="$RUNNER_TEMP/PayDay-${RELEASE_TAG}.apk"
-          test -s "$PREVIOUS_APK"
-
-          BUILD_TOOLS_VERSION="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
-          APKSIGNER="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner"
-          AAPT="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt"
-          OLD_CERT="$("$APKSIGNER" verify --print-certs "$PREVIOUS_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
-          NEW_CERT="$("$APKSIGNER" verify --print-certs "$NEW_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
-          if [ -z "$OLD_CERT" ] || [ -z "$NEW_CERT" ] || [ "$OLD_CERT" != "$NEW_CERT" ]; then
-            echo "::error::The rebuilt APK is not signed by the same certificate as the published APK."
-            exit 1
-          fi
-
-          OLD_CODE="$("$AAPT" dump badging "$PREVIOUS_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
-          NEW_CODE="$("$AAPT" dump badging "$NEW_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
-          if [ -z "$OLD_CODE" ] || [ -z "$NEW_CODE" ] || [ "$NEW_CODE" -le "$OLD_CODE" ]; then
-            echo "::error::The rebuilt APK must have a version code higher than the published APK."
-            exit 1
-          fi
-
-      - name: Replace existing GitHub Release assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: |
-          APK_NAME="PayDay-${RELEASE_TAG}.apk"
-          gh release upload "$RELEASE_TAG" \
-            "$RUNNER_TEMP/$APK_NAME" \
-            "$RUNNER_TEMP/$APK_NAME.sha256" \
-            --clobber
-          gh release view "$RELEASE_TAG" --json body --jq .body > "$RUNNER_TEMP/release-notes-old.md"
-          grep -v '<!-- payday-build:' "$RUNNER_TEMP/release-notes-old.md" > "$RUNNER_TEMP/release-notes.md" || true
-          BUILD_NUMBER="$(sed -n 's/^version: *[^+]*+\([0-9][0-9]*\).*/\1/p' pubspec.yaml)"
-          printf '\n\n<!-- payday-build: %s -->\n' "$BUILD_NUMBER" >> "$RUNNER_TEMP/release-notes.md"
-          gh release edit "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
+          gh release create "$RELEASE_TAG" \
+            "$RUNNER_TEMP/PayDay-${RELEASE_TAG}.apk" \
+            "$RUNNER_TEMP/PayDay-${RELEASE_TAG}.apk.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_REF" \
+            --title "PayDay ${RELEASE_TAG}" \
+            --generate-notes
+```
