@@ -124,17 +124,20 @@ class _CalendarScreenState extends State<CalendarScreen>
             objectName: objectName,
             note: note,
           );
+          if (!mounted) return;
           Navigator.of(context).pop();
           _loadMonth();
         },
         onMarkNotWorked: () async {
           await _dataService.markNotWorked(date);
+          if (!mounted) return;
           Navigator.of(context).pop();
           _loadMonth();
         },
         onUpdateNote: (note) async {
           if (workDay != null) {
             await _dataService.updateWorkDayNote(workDay.id, note);
+            if (!mounted) return;
             Navigator.of(context).pop();
             _loadMonth();
           }

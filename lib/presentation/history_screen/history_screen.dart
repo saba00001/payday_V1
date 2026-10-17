@@ -107,6 +107,7 @@ class _HistoryScreenState extends State<HistoryScreen>
         maxAmount: _dataService.getTotalSalary()['remaining']! + tx.amount,
         onSave: (updated) async {
           await _dataService.updateTransaction(updated);
+          if (!mounted) return;
           Navigator.of(context).pop();
           _refresh();
         },

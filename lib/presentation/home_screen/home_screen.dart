@@ -305,6 +305,7 @@ class _HomeScreenState extends State<HomeScreen>
         onSave: (name) async {
           if (name.trim().isEmpty) return;
           await _dataService.createObject(name: name.trim());
+          if (!mounted) return;
           Navigator.of(context).pop();
           _refresh();
         },

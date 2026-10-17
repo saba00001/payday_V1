@@ -44,36 +44,32 @@ in PowerShell. Paste the result only into GitHub's secret field.
 
 `pubspec.yaml` uses Flutter's `major.minor.patch+buildNumber` format:
 
-For example, the current project version can be found directly in `pubspec.yaml`.
-Do not reset the version or build number.
+The current project version is `1.0.3+5` in `pubspec.yaml`. Do not reset the
+version or build number. The existing `v1.0.1` and `v1.0.2` Releases and tags
+are historical releases and should not be deleted or moved.
 
 For a new public release:
 
-1. Update the semantic version and increase the Android build number, for
-   example `version: 1.0.1+2`.
-2. Commit and push the change to the release branch.
-3. Create and push the matching stable version tag, for example:
+1. Update the semantic version and increase the Android build number. Each APK
+   must have a higher Android version code than the currently published APK.
+2. Commit and push the changes to `main`.
+3. In GitHub Actions, run **Android signed release** from `main`, set the
+   release tag to match `pubspec.yaml` (for example `v1.0.3` for
+   `1.0.3+5`), and set `source_ref` to `main`.
+4. The workflow validates the version, requires all four signing secrets,
+   verifies both the keystore and private-key passwords, builds the signed
+   universal APK, checks signing-certificate and version-code continuity
+   against the existing `v1.0.2` APK, calculates the SHA-256 checksum, and
+   creates the GitHub Release.
 
-   ```sh
-   git tag v1.0.1
-   git push origin v1.0.1
-   ```
-
-4. GitHub Actions validates that the tag version matches `pubspec.yaml`, builds
-   a signed universal APK, calculates its SHA-256 checksum, and attaches both
-   files to a stable GitHub Release with generated notes.
 5. Verify the Release is public and has exactly one `.apk` plus its matching
    `.apk.sha256` checksum file.
 
-Every Android build must have a strictly higher build number than the APK it
-replaces. To repair an existing release without creating a new public version,
-use the workflow's **Run workflow** action, enter the existing tag, and select
-the branch or commit containing the fix. For the current `v1.0.2` repair, keep
-the public version at `1.0.2` and use build number `4`; do not create or push a
-`v1.0.3` tag. The workflow replaces the existing APK and checksum only after
-it verifies the new APK's signing certificate and version code against the
-published APK. It also writes a `payday-build` marker into the release notes so
-the updater can distinguish builds sharing the same public version name.
+Do not delete or replace assets from an existing Release when publishing a new
+version. The workflow creates a new Release only after the build and signing
+checks succeed. If the workflow reports a signing-key validation error, correct
+the corresponding repository Actions secret in GitHub Settings; never send
+keystore passwords through chat or commit them to the repository.
 
 ## Local commands
 

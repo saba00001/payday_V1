@@ -81,8 +81,22 @@ jobs:
           PAYDAY_KEYSTORE_PATH: ${{ runner.temp }}/payday-release.jks
           PAYDAY_KEYSTORE_PASSWORD: ${{ secrets.PAYDAY_KEYSTORE_PASSWORD }}
           PAYDAY_KEY_ALIAS: ${{ secrets.PAYDAY_KEY_ALIAS }}
+          PAYDAY_KEY_PASSWORD: ${{ secrets.PAYDAY_KEY_PASSWORD }}
         run: |
-          keytool -list -keystore "$PAYDAY_KEYSTORE_PATH" -storepass "$PAYDAY_KEYSTORE_PASSWORD" -alias "$PAYDAY_KEY_ALIAS"
+          keytool -list \
+            -keystore "$PAYDAY_KEYSTORE_PATH" \
+            -storepass "$PAYDAY_KEYSTORE_PASSWORD" \
+            -alias "$PAYDAY_KEY_ALIAS" >/dev/null
+          if ! keytool -certreq \
+            -keystore "$PAYDAY_KEYSTORE_PATH" \
+            -storepass "$PAYDAY_KEYSTORE_PASSWORD" \
+            -keypass "$PAYDAY_KEY_PASSWORD" \
+            -alias "$PAYDAY_KEY_ALIAS" \
+            -file "$RUNNER_TEMP/signing-key-validation.csr" \
+            -noprompt >/dev/null 2>&1; then
+            echo "::error::The keystore, key alias, or private-key password does not match. Recheck the four PAYDAY signing secrets in GitHub Actions settings."
+            exit 1
+          fi
 
       - name: Build signed APK
         env:
@@ -99,8 +113,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$RUNNER_TEMP/previous-release"
-          gh release download v1.0.2 --repo "$GITHUB_REPOSITORY" --pattern "PayDay-v1.0.2.apk" --dir "$RUNNER_TEMP/previous-release"
-          OLD_APK="$RUNNER_TEMP/previous-release/PayDay-v1.0.2.apk"
+          gh release download v1.0.2 --repo "$GITHUB_REPOSITORY" --pattern "app-release.apk" --dir "$RUNNER_TEMP/previous-release"
+          OLD_APK="$RUNNER_TEMP/previous-release/app-release.apk"
           NEW_APK="build/app/outputs/flutter-apk/app-release.apk"
           test -s "$OLD_APK"
           test -s "$NEW_APK"
@@ -121,10 +135,8 @@ jobs:
           fi
 
       - name: Prepare release assets
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          APK_NAME="PayDay-${RELEASE_TAG}.apk"
+          APK_NAME="app-release.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "$RUNNER_TEMP/$APK_NAME"
           cd "$RUNNER_TEMP"
           sha256sum "$APK_NAME" > "$APK_NAME.sha256"
@@ -136,8 +148,8 @@ jobs:
           SOURCE_REF: ${{ inputs.source_ref }}
         run: |
           gh release create "$RELEASE_TAG" \
-            "$RUNNER_TEMP/PayDay-${RELEASE_TAG}.apk" \
-            "$RUNNER_TEMP/PayDay-${RELEASE_TAG}.apk.sha256" \
+            "$RUNNER_TEMP/app-release.apk" \
+            "$RUNNER_TEMP/app-release.apk.sha256" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$SOURCE_REF" \
             --title "PayDay ${RELEASE_TAG}" \

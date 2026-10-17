@@ -8,17 +8,17 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   // ── Brand Colors ──────────────────────────────────────────────────────
   static const Color primary = Color(0xFF00D4AA);
-  static const Color primaryContainer = Color(0xff00d4aa26);
+  static const Color primaryContainer = Color(0x2600D4AA);
   static const Color secondary = Color(0xFF7B5CF5);
-  static const Color secondaryContainer = Color(0xff7b5cf526);
+  static const Color secondaryContainer = Color(0x267B5CF5);
 
   // ── Semantic Colors ───────────────────────────────────────────────────
   static const Color success = Color(0xFF00D4AA);
-  static const Color successContainer = Color(0xff00d4aa1a);
+  static const Color successContainer = Color(0x1A00D4AA);
   static const Color warning = Color(0xFFF6AD55);
-  static const Color warningContainer = Color(0xfff6ad551a);
+  static const Color warningContainer = Color(0x1AF6AD55);
   static const Color errorColor = Color(0xFFFC8181);
-  static const Color errorContainer = Color(0xfffc81811a);
+  static const Color errorContainer = Color(0x1AFC8181);
 
   // ── Dark Theme Surfaces ───────────────────────────────────────────────
   static const Color backgroundDark = Color(0xFF080C14);
