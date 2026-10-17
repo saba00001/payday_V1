@@ -24,6 +24,7 @@ final class GitHubReleaseAsset {
 final class GitHubRelease {
   final String tagName;
   final SemanticVersion version;
+  final int? buildNumber;
   final String notes;
   final GitHubReleaseAsset apk;
   final GitHubReleaseAsset checksum;
@@ -31,6 +32,7 @@ final class GitHubRelease {
   const GitHubRelease({
     required this.tagName,
     required this.version,
+    required this.buildNumber,
     required this.notes,
     required this.apk,
     required this.checksum,
@@ -82,10 +84,29 @@ final class GitHubRelease {
       );
     }
 
+    final rawNotes = (json['body'] as String?)?.trim() ?? '';
+    final buildMarkers = RegExp(
+      r'<!-- payday-build: (\d+) -->',
+    ).allMatches(rawNotes).toList();
+    if (buildMarkers.length > 1) {
+      throw const UpdateException(
+        'GitHub Release-ის build metadata არასწორია.',
+      );
+    }
+    final buildNumber = buildMarkers.isEmpty
+        ? null
+        : int.tryParse(buildMarkers.single.group(1)!);
+    if (buildMarkers.isNotEmpty && (buildNumber == null || buildNumber < 1)) {
+      throw const UpdateException(
+        'GitHub Release-ის build metadata არასწორია.',
+      );
+    }
+
     return GitHubRelease(
       tagName: tagName,
       version: version,
-      notes: (json['body'] as String?)?.trim() ?? '',
+      buildNumber: buildNumber,
+      notes: rawNotes.replaceAll(RegExp(r'\s*<!-- payday-build: \d+ -->'), ''),
       apk: apk,
       checksum: checksumAssets.single,
     );

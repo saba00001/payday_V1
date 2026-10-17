@@ -1,21 +1,22 @@
 # Android releases, updates, and local backups
 
-PayDay checks `saba00001/payday_V1` for a stable GitHub Release when an Android
-release build starts. This check runs in the background: if GitHub is offline,
-the normal app remains available and all stored data continues to work locally.
-When a newer release exists, PayDay offers an update without blocking app use.
-APK downloads still require a valid SHA-256 checksum before Android's installer
-is opened.
+On Android release builds, PayDay checks `saba00001/payday_V1` for the latest
+stable GitHub Release before showing the normal app. If the check fails or a
+newer version is available, the app remains on the update screen until the
+check succeeds or the update is installed. Debug builds and non-Android
+platforms are not gated.
 
 ## Existing Android identity
 
 The Android application ID is currently `com.example.payday` in
 `android/app/build.gradle.kts`. Keep that exact ID for every update. The
-existing release build was configured with the debug signing key; that is not
-compatible with production distribution. The first published release must be
-signed using one stable production keystore, and every subsequent release must
-use that same keystore and key alias. Android will reject updates signed with a
-different key. Do not change or lose the keystore.
+published `v1.0.2` APK is signed with a certificate whose SHA-256 digest is
+`f333ea34b4c83c276e36cec926faeaa57567390832552021aa01472722870db9`. The
+corresponding private signing key is not present in the repository or this
+development environment. Configure the original key in GitHub Actions secrets;
+do not generate a replacement key. The release workflow compares the newly
+built APK's certificate with the currently published APK before replacing its
+assets. Android will reject updates signed with a different key.
 
 ## One-time GitHub setup
 
@@ -46,7 +47,7 @@ in PowerShell. Paste the result only into GitHub's secret field.
 For example, the current project version can be found directly in `pubspec.yaml`.
 Do not reset the version or build number.
 
-For every release:
+For a new public release:
 
 1. Update the semantic version and increase the Android build number, for
    example `version: 1.0.1+2`.
@@ -64,9 +65,15 @@ For every release:
 5. Verify the Release is public and has exactly one `.apk` plus its matching
    `.apk.sha256` checksum file.
 
-The first release for users on an older app must use a greater semantic version
-than the version they have installed. The build number must always increase,
-even for releases where only metadata has changed.
+Every Android build must have a strictly higher build number than the APK it
+replaces. To repair an existing release without creating a new public version,
+use the workflow's **Run workflow** action, enter the existing tag, and select
+the branch or commit containing the fix. For the current `v1.0.2` repair, keep
+the public version at `1.0.2` and use build number `4`; do not create or push a
+`v1.0.3` tag. The workflow replaces the existing APK and checksum only after
+it verifies the new APK's signing certificate and version code against the
+published APK. It also writes a `payday-build` marker into the release notes so
+the updater can distinguish builds sharing the same public version name.
 
 ## Local commands
 
@@ -105,10 +112,15 @@ GitHub's release asset hosts. The checksum asset must be named
 filename) or `SHA256SUMS` (containing a matching entry). An absent, malformed,
 or mismatching checksum fails closed.
 
-If GitHub is unreachable or the release response cannot be validated, the app
-continues normally and checks again the next time it starts or resumes. No
-update is claimed to have succeeded until Android reports the installed
-version after the system installer returns.
+The checksum detects accidental or transport corruption; it is not a digital
+signature. Android's package installer separately verifies that the APK is
+signed with a certificate accepted for this installed application. Do not
+replace a release asset unless the signing-certificate continuity check passes.
+
+If GitHub is unreachable or the release response cannot be validated, the
+normal interface stays blocked and the user can retry the check. No update is
+claimed to have succeeded until Android reports the installed version after
+the system installer returns.
 
 ## Local data and backup recovery
 
@@ -117,6 +129,13 @@ reminder settings, and work schedule in Android app-private
 `SharedPreferences`. Normal app updates preserve this private data as long as
 the application ID and signing key remain the same. A corrupt stored record is
 reported instead of being silently treated as an empty collection.
+
+Older records may omit fields that the model schema defines as optional; those
+records are loaded with the model's backward-compatible defaults. Before a
+storage schema version advances, PayDay saves a raw local recovery snapshot.
+If local data still cannot be read, Settings offers validated internal
+snapshots and external backup selection. Starting with new data is a separate,
+explicitly confirmed action and keeps a recovery snapshot first.
 
 In **Settings → Data**, use **Create backup** to save a versioned JSON backup
 through Android's system file picker. Choose a location outside PayDay's

@@ -1585,6 +1585,40 @@ void main() {
       );
     });
 
+    test(
+      'legacy model records with omitted optional fields remain readable',
+      () {
+        final object = WorkObjectModel.decodeList(
+          '[{"id":"old-object","name":"Old site"}]',
+        ).single;
+        final workDay = WorkDayModel.decodeList(
+          '[{"id":"old-day","date":"2026-09-17T00:00:00.000",'
+          '"status":"worked","dailyWage":80}]',
+        ).single;
+        final payment = PaymentTransactionModel.decodeList(
+          '[{"id":"old-payment","amount":25,'
+          '"dateTime":"2026-09-17T10:00:00.000"}]',
+        ).single;
+        final advance = AdvanceModel.decodeList(
+          '[{"id":"old-advance","amount":50,'
+          '"dateTime":"2026-09-17T10:00:00.000"}]',
+        ).single;
+        final period = SalaryPeriodModel.decodeList(
+          '[{"id":"old-period","year":2026,"month":9,"dailyWage":80}]',
+        ).single;
+
+        expect(object.name, 'Old site');
+        expect(object.status, WorkObjectStatus.active);
+        expect(workDay.isWorked, isTrue);
+        expect(workDay.objectId, isEmpty);
+        expect(payment.amount, 25);
+        expect(payment.objectId, isEmpty);
+        expect(advance.amount, 50);
+        expect(advance.objectId, isEmpty);
+        expect(period.year, 2026);
+      },
+    );
+
     test('WorkDayModel.fromMap handles unknown status gracefully', () {
       final map = <String, dynamic>{
         'id': 'test-id',

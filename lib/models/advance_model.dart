@@ -48,11 +48,14 @@ class AdvanceModel {
           !(item['amount'] as num).isFinite ||
           (item['amount'] as num) <= 0 ||
           DateTime.tryParse(item['dateTime'] as String? ?? '') == null ||
-          item['objectId'] is! String ||
-          item['objectName'] is! String) {
+          !_optionalString(item['objectId']) ||
+          !_optionalString(item['objectName'])) {
         throw const FormatException('Advance record is invalid.');
       }
       return AdvanceModel.fromMap(item);
     }).toList();
   }
+
+  static bool _optionalString(Object? value) =>
+      value == null || value is String;
 }

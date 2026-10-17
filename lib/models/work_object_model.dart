@@ -91,11 +91,23 @@ class WorkObjectModel {
           item['id'] is! String ||
           (item['id'] as String).isEmpty ||
           item['name'] is! String ||
-          item['name'] is String && (item['name'] as String).trim().isEmpty ||
-          DateTime.tryParse(item['createdAt'] as String? ?? '') == null) {
+          (item['name'] as String).trim().isEmpty ||
+          !_optionalString(item['address']) ||
+          !_optionalString(item['note']) ||
+          !_optionalDate(item['createdAt']) ||
+          (item['completedAt'] != null &&
+              DateTime.tryParse(item['completedAt'] as String? ?? '') ==
+                  null) ||
+          !_optionalString(item['status'])) {
         throw const FormatException('Object record is invalid.');
       }
       return WorkObjectModel.fromMap(item);
     }).toList();
   }
+
+  static bool _optionalString(Object? value) =>
+      value == null || value is String;
+
+  static bool _optionalDate(Object? value) =>
+      value == null || (value is String && DateTime.tryParse(value) != null);
 }

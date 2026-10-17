@@ -45,21 +45,29 @@ class SalaryPeriodModel {
     }
     return decoded.map((item) {
       if (item is! Map<String, dynamic> ||
-          item['id'] is! String ||
-          (item['id'] as String).isEmpty ||
-          item['year'] is! int ||
-          item['month'] is! int ||
-          (item['month'] as int) < 1 ||
-          (item['month'] as int) > 12 ||
-          item['dailyWage'] is! num ||
-          !(item['dailyWage'] as num).isFinite ||
-          (item['dailyWage'] as num) < 0 ||
-          DateTime.tryParse(item['createdAt'] as String? ?? '') == null) {
+          !_optionalString(item['id']) ||
+          (item['year'] != null &&
+              (item['year'] is! int || (item['year'] as int) < 1)) ||
+          (item['month'] != null &&
+              (item['month'] is! int ||
+                  (item['month'] as int) < 1 ||
+                  (item['month'] as int) > 12)) ||
+          (item['dailyWage'] != null &&
+              (item['dailyWage'] is! num ||
+                  !(item['dailyWage'] as num).isFinite ||
+                  (item['dailyWage'] as num) < 0)) ||
+          !_optionalDate(item['createdAt'])) {
         throw const FormatException('Salary period record is invalid.');
       }
       return SalaryPeriodModel.fromMap(item);
     }).toList();
   }
+
+  static bool _optionalString(Object? value) =>
+      value == null || value is String;
+
+  static bool _optionalDate(Object? value) =>
+      value == null || (value is String && DateTime.tryParse(value) != null);
 
   SalaryPeriodModel copyWith({
     String? id,

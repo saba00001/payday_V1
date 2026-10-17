@@ -109,10 +109,3 @@ restore are documented in
 [docs/ANDROID_RELEASES.md](docs/ANDROID_RELEASES.md). Android release builds
 must use the production signing key configured through GitHub Actions secrets;
 do not distribute debug-signed release APKs.
-
-## 🙏 Acknowledgments
-- Built with [Rocket.new](https://rocket.new)
-- Powered by [Flutter](https://flutter.dev) & [Dart](https://dart.dev)
-- Styled with Material Design
-
-Built with ❤️ on Rocket.new

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_export.dart';
@@ -63,12 +64,20 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       await _dataService.init();
       _refresh();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+          'PayDay dashboard initialization failed '
+          '(${error.runtimeType}); local data was not cleared.',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
       if (!mounted) return;
       setState(() {
         _loadError =
             'ლოკალური მონაცემების წაკითხვა ვერ მოხერხდა. '
-            'მონაცემები არ წაიშალა. გახსენი პარამეტრები და აღადგინე backup.';
+            'მონაცემები არ წაშლილა. გახსენი პარამეტრები, '
+            'შეამოწმე backup და აირჩიე აღდგენა ან ახალი მონაცემებით დაწყება.';
       });
     }
   }

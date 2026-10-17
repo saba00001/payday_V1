@@ -75,10 +75,17 @@ class PaymentTransactionModel {
           item['amount'] is! num ||
           !(item['amount'] as num).isFinite ||
           (item['amount'] as num) < 0 ||
-          DateTime.tryParse(item['dateTime'] as String? ?? '') == null) {
+          DateTime.tryParse(item['dateTime'] as String? ?? '') == null ||
+          !_optionalString(item['salaryPeriodId']) ||
+          !_optionalString(item['objectId']) ||
+          !_optionalString(item['objectName']) ||
+          !_optionalString(item['note'])) {
         throw const FormatException('Payment record is invalid.');
       }
       return PaymentTransactionModel.fromMap(item);
     }).toList();
   }
+
+  static bool _optionalString(Object? value) =>
+      value == null || value is String;
 }

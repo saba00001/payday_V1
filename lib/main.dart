@@ -43,12 +43,7 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MandatoryUpdateGate(
-      enabled: defaultTargetPlatform == TargetPlatform.android && kReleaseMode,
-      child: _buildPayDayApp(),
-    );
-  }
+  Widget build(BuildContext context) => _buildPayDayApp();
 
   Widget _buildPayDayApp() {
     return Sizer(
@@ -60,11 +55,16 @@ class MyApp extends StatelessWidget {
           themeMode: ThemeMode.light,
           // 🚨 CRITICAL: NEVER REMOVE OR MODIFY
           builder: (context, child) {
-            return MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: TextScaler.linear(1.0)),
-              child: child!,
+            return MandatoryUpdateGate(
+              enabled:
+                  defaultTargetPlatform == TargetPlatform.android &&
+                  kReleaseMode,
+              child: MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(1.0)),
+                child: child!,
+              ),
             );
           },
           // 🚨 END CRITICAL SECTION

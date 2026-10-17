@@ -20,8 +20,13 @@ final class UpdateCheckResult {
   SemanticVersion get installedSemanticVersion =>
       SemanticVersion.tryParse(installedVersion)!;
 
-  bool get updateRequired =>
-      release.version.compareTo(installedSemanticVersion) > 0;
+  bool get updateRequired {
+    final versionOrder = release.version.compareTo(installedSemanticVersion);
+    if (versionOrder != 0) return versionOrder > 0;
+    final installedBuild =
+        int.tryParse(installedSemanticVersion.buildMetadata ?? '') ?? 0;
+    return (release.buildNumber ?? 0) > installedBuild;
+  }
 }
 
 abstract interface class MandatoryUpdateService {

@@ -105,10 +105,10 @@ class DataService {
     _transactions = _storage.loadTransactions();
     _advances = _storage.loadAdvances();
     _periods = _storage.loadPeriods();
-    _ensureCurrentPeriod();
+    await _ensureCurrentPeriod();
   }
 
-  void _ensureCurrentPeriod() {
+  Future<void> _ensureCurrentPeriod() async {
     final now = DateTime.now();
     final exists = _periods.any(
       (p) => p.year == now.year && p.month == now.month,
@@ -124,7 +124,7 @@ class DataService {
           createdAt: now,
         ),
       );
-      _storage.savePeriods(_periods);
+      await _storage.savePeriods(_periods);
     }
   }
 
@@ -655,6 +655,16 @@ class DataService {
     _transactions = [];
     _advances = [];
     _periods = [];
+  }
+
+  Future<void> resetUserData() async {
+    await _storage.resetUserData();
+    _objects = [];
+    _workDays = [];
+    _transactions = [];
+    _advances = [];
+    _periods = [];
+    await _ensureCurrentPeriod();
   }
 
   // ── Yesterday's Object ────────────────────────────────────────────────

@@ -239,7 +239,13 @@ class MainActivity : FlutterFragmentActivity() {
                         } else {
                             packageManager.getPackageInfo(packageName, 0)
                         }
-                        result.success(packageInfo.versionName)
+                        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            packageInfo.longVersionCode
+                        } else {
+                            @Suppress("DEPRECATION")
+                            packageInfo.versionCode.toLong()
+                        }
+                        result.success("${packageInfo.versionName}+$versionCode")
                     }
 
                     "getUpdateDirectory" -> {

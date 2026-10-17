@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/work_object_model.dart';
 import '../../models/work_day_model.dart';
@@ -30,8 +31,9 @@ class LocalStorageService {
   static const String _workScheduleKey = 'payday_work_schedule_v1';
   static const String _dataVersionKey = 'payday_data_version';
   static const String _lastBackupAtKey = 'payday_last_backup_at';
+  static const String _legacyRecoveryKey = 'payday_pre_migration_backup_v1';
 
-  static const int _currentDataVersion = 1;
+  static const int _currentDataVersion = 2;
 
   SharedPreferences? _prefs;
 
@@ -40,9 +42,51 @@ class LocalStorageService {
     await _checkDataVersion();
   }
 
+  Future<void> resetUserData() async {
+    final prefs = _requirePrefs();
+    final previousRawData = exportRawStorageState();
+    try {
+      for (final key in _backupKeys) {
+        if (!await prefs.remove(key)) {
+          throw LocalStorageException(
+            'მონაცემის გასუფთავება ვერ მოხერხდა ($key).',
+          );
+        }
+      }
+    } catch (error) {
+      try {
+        await _restoreRawStorageState(previousRawData);
+      } catch (rollbackError) {
+        throw LocalStorageException(
+          'მონაცემების გასუფთავება და თავდაპირველი მდგომარეობის დაბრუნება '
+          'ვერ მოხერხდა: $error; $rollbackError',
+        );
+      }
+      rethrow;
+    }
+  }
+
   Future<void> _checkDataVersion() async {
     final version = _requirePrefs().getInt(_dataVersionKey) ?? 0;
     if (version < _currentDataVersion) {
+      final prefs = _requirePrefs();
+      final previous = <String, Object?>{
+        for (final key in _backupKeys)
+          if (prefs.get(key) != null) key: prefs.get(key),
+      };
+      if (previous.isNotEmpty) {
+        final recovery = jsonEncode({
+          'format': 'payday-storage-recovery',
+          'version': version,
+          'createdAt': DateTime.now().toUtc().toIso8601String(),
+          'data': previous,
+        });
+        if (!await prefs.setString(_legacyRecoveryKey, recovery)) {
+          throw const LocalStorageException(
+            'მონაცემების განახლებამდე უსაფრთხო ასლის შექმნა ვერ მოხერხდა.',
+          );
+        }
+      }
       final saved = await _requirePrefs().setInt(
         _dataVersionKey,
         _currentDataVersion,
@@ -256,7 +300,7 @@ class LocalStorageService {
   Map<String, Object?> exportRawStorageState() {
     final prefs = _requirePrefs();
     return {
-      for (final key in _backupKeys)
+      for (final key in [..._backupKeys, _dataVersionKey, _legacyRecoveryKey])
         if (prefs.get(key) != null) key: prefs.get(key),
     };
   }
@@ -391,7 +435,18 @@ class LocalStorageService {
     try {
       return decode();
     } on Object catch (error) {
-      throw LocalStorageException('მონაცემები დაზიანებულია ($key): $error');
+      if (kDebugMode) {
+        final reason = error is FormatException
+            ? error.message
+            : error.runtimeType.toString();
+        debugPrint(
+          'PayDay local storage decode failed for $key '
+          '($reason). Stored values are not logged.',
+        );
+      }
+      throw LocalStorageException(
+        'მონაცემები ვერ იკითხება ($key; ${error.runtimeType}).',
+      );
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:payday/services/backup/backup_document.dart';
 import 'package:payday/services/backup/backup_platform.dart';
 import 'package:payday/services/backup/backup_service.dart';
 import 'package:payday/services/storage/local_storage_service.dart';
+import 'package:payday/services/data_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -60,9 +61,97 @@ void main() {
         throwsA(isA<FormatException>()),
       );
     });
+
+    test(
+      'accepts compatible legacy records with defaulted optional fields',
+      () {
+        final legacyData = _validData()
+          ..['objects'] = [
+            {'id': 'old-object', 'name': 'ძველი ობიექტი'},
+          ]
+          ..['workDays'] = [
+            {
+              'id': 'old-day',
+              'date': '2026-09-17T00:00:00.000',
+              'status': 'worked',
+            },
+          ]
+          ..['periods'] = [<String, Object?>{}];
+
+        final decoded = BackupDocument.decode(
+          BackupDocument(
+            createdAt: DateTime.utc(2026),
+            data: legacyData,
+          ).encode(),
+        );
+
+        expect(decoded.data['objects'], legacyData['objects']);
+        expect(decoded.data['workDays'], legacyData['workDays']);
+        expect(decoded.data['periods'], legacyData['periods']);
+      },
+    );
   });
 
   group('BackupService', () {
+    test(
+      'first launch with empty storage initializes without data loss',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final storage = LocalStorageService();
+        final service = DataService(storage);
+
+        await service.init();
+
+        expect(service.objects, isEmpty);
+        expect(service.workDays, isEmpty);
+        expect(service.transactions, isEmpty);
+        expect(service.advances, isEmpty);
+        expect(service.getTotalSalary()['remaining'], 0);
+      },
+    );
+
+    test(
+      'older stored records load and remain in preferences unchanged',
+      () async {
+        final oldObject = jsonEncode([
+          {'id': 'site-old', 'name': 'ძველი ობიექტი'},
+        ]);
+        final oldAdvance = jsonEncode([
+          {
+            'id': 'advance-old',
+            'amount': 120.0,
+            'dateTime': '2026-09-01T09:00:00.000',
+          },
+        ]);
+        final oldWorkDay = jsonEncode([
+          {
+            'id': 'work-old',
+            'date': '2026-09-02T00:00:00.000',
+            'status': 'worked',
+            'dailyWage': 80.0,
+          },
+        ]);
+        SharedPreferences.setMockInitialValues({
+          'payday_objects_v1': oldObject,
+          'payday_advances_v1': oldAdvance,
+          'payday_workdays_v1': oldWorkDay,
+        });
+        final storage = LocalStorageService();
+        final service = DataService(storage);
+
+        await service.init();
+
+        expect(service.objects.single.name, 'ძველი ობიექტი');
+        expect(service.advances.single.objectId, isEmpty);
+        expect(service.workDays.single.dailyWage, 80);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('payday_objects_v1'), oldObject);
+        expect(prefs.getString('payday_advances_v1'), oldAdvance);
+        expect(prefs.getString('payday_workdays_v1'), oldWorkDay);
+        expect(prefs.getString('payday_pre_migration_backup_v1'), isNotNull);
+      },
+    );
+
     test(
       'restores validated data and preserves a private pre-restore copy',
       () async {
@@ -98,9 +187,8 @@ void main() {
     test(
       'a corrupt existing collection is not treated as empty data',
       () async {
-        SharedPreferences.setMockInitialValues({
-          'payday_objects_v1': '{broken',
-        });
+        const corrupt = '{broken';
+        SharedPreferences.setMockInitialValues({'payday_objects_v1': corrupt});
         final storage = LocalStorageService();
         await storage.init();
 
@@ -108,8 +196,46 @@ void main() {
           () => storage.loadObjects(),
           throwsA(isA<LocalStorageException>()),
         );
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('payday_objects_v1'), corrupt);
       },
     );
+
+    test('invalid restore data leaves current user data unchanged', () async {
+      SharedPreferences.setMockInitialValues({
+        'payday_objects_v1': '[{"id":"current","name":"Current"}]',
+        'payday_daily_wage_v1': 80.0,
+      });
+      final directory = await Directory.systemTemp.createTemp('payday-backup');
+      addTearDown(() => directory.delete(recursive: true));
+      final storage = LocalStorageService();
+      await storage.init();
+      final service = BackupService(
+        storage,
+        platform: _FakeBackupPlatform(directory.path),
+      );
+      final invalidData = _validData()..['dailyWage'] = -1.0;
+
+      await expectLater(
+        service.restore(
+          BackupDocument(createdAt: DateTime.utc(2026), data: invalidData),
+        ),
+        throwsA(isA<FormatException>()),
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString('payday_objects_v1'),
+        '[{"id":"current","name":"Current"}]',
+      );
+      expect(storage.loadDailyWage(), 80);
+      expect(
+        Directory(
+          '${directory.path}${Platform.pathSeparator}snapshots',
+        ).existsSync(),
+        isFalse,
+      );
+    });
 
     test(
       'a valid backup can recover corrupt local data without losing its raw snapshot',
@@ -166,6 +292,64 @@ void main() {
         expect(storage.loadDailyWage(), 80);
       },
     );
+
+    test(
+      'unavailable selected backup leaves current preferences unchanged',
+      () async {
+        SharedPreferences.setMockInitialValues({'payday_daily_wage_v1': 80.0});
+        final directory = await Directory.systemTemp.createTemp(
+          'payday-backup',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final storage = LocalStorageService();
+        await storage.init();
+        final service = BackupService(
+          storage,
+          platform: _FakeBackupPlatform(
+            directory.path,
+            '${directory.path}${Platform.pathSeparator}missing.json',
+          ),
+        );
+
+        await expectLater(
+          service.selectBackup(),
+          throwsA(isA<FileSystemException>()),
+        );
+        expect(storage.loadDailyWage(), 80);
+      },
+    );
+
+    test('internal backup discovery returns only valid backups', () async {
+      SharedPreferences.setMockInitialValues({});
+      final directory = await Directory.systemTemp.createTemp('payday-backup');
+      addTearDown(() => directory.delete(recursive: true));
+      final storage = LocalStorageService();
+      await storage.init();
+      final service = BackupService(
+        storage,
+        platform: _FakeBackupPlatform(directory.path),
+      );
+      final snapshots = Directory(
+        '${directory.path}${Platform.pathSeparator}snapshots',
+      );
+      await snapshots.create(recursive: true);
+      await File(
+        '${snapshots.path}${Platform.pathSeparator}valid.json',
+      ).writeAsString(
+        BackupDocument(
+          createdAt: DateTime.utc(2026),
+          data: _validData(),
+        ).encode(),
+      );
+      await File(
+        '${snapshots.path}${Platform.pathSeparator}broken.json',
+      ).writeAsString('{broken');
+
+      final inventory = await service.discoverInternalBackups();
+
+      expect(inventory.backups, hasLength(1));
+      expect(inventory.invalidFiles, 1);
+    });
   });
 }
 

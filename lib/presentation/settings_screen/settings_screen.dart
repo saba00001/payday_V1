@@ -4,11 +4,14 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/app_export.dart';
 import '../../routes/app_routes.dart';
 import '../../services/reminder_service.dart';
+import '../../services/backup/backup_document.dart';
 import '../../services/backup/backup_service.dart';
+import 'recovery_confirmation_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -43,12 +46,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _backupBusy = false;
   DateTime? _lastBackupAt;
   String? _storageError;
+  String? _backupDiscoveryError;
+  LocalBackupInventory? _localBackupInventory;
+  String? _installedVersion;
+  bool _versionLoadFailed = false;
 
   @override
   void initState() {
     super.initState();
     DataService.dataRevision.addListener(_onDataRestored);
     _isAndroid = !kIsWeb && Platform.isAndroid;
+    _loadInstalledVersion();
     _init();
   }
 
@@ -78,13 +86,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _loadSettings();
       if (_isAndroid) _checkPermissions();
     } catch (_) {
+      if (kDebugMode) {
+        debugPrint(
+          'PayDay settings could not initialize local storage. '
+          'Check the preceding key-specific storage diagnostic.',
+        );
+      }
       if (!mounted) return;
       setState(() {
         _storageError =
-            'ლოკალური მონაცემების წაკითხვა ვერ მოხერხდა. მონაცემები არ წაიშალა. '
-            'შეარჩიე გარე backup-იდან აღდგენა.';
+            'ლოკალური მონაცემების წაკითხვა ვერ მოხერხდა. '
+            'მონაცემები არ წაშლილა და აპი მათ ავტომატურად არ გაასუფთავებს. '
+            'ჯერ შეამოწმე არსებული სარეზერვო ასლები.';
         _initialized = true;
       });
+      _discoverLocalBackups();
+    }
+  }
+
+  Future<void> _loadInstalledVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() => _installedVersion = packageInfo.version);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          'PayDay could not read the installed package version '
+          '(${error.runtimeType}).',
+        );
+      }
+      if (mounted) setState(() => _versionLoadFailed = true);
+    }
+  }
+
+  Future<void> _discoverLocalBackups() async {
+    if (mounted) {
+      setState(() {
+        _backupDiscoveryError = null;
+        _localBackupInventory = null;
+      });
+    }
+    try {
+      final inventory = await _backupService.discoverInternalBackups();
+      if (mounted) setState(() => _localBackupInventory = inventory);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          'PayDay local backup discovery failed (${error.runtimeType}).',
+        );
+      }
+      if (mounted) {
+        setState(
+          () => _backupDiscoveryError =
+              'შიდა backup-ების მოძიება ვერ მოხერხდა. '
+              'არსებული მონაცემები უცვლელია; სცადე ხელახლა.',
+        );
+      }
     }
   }
 
@@ -128,47 +186,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final backup = await _backupService.selectBackup();
       if (!mounted || backup == null) return;
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: AppTheme.surfaceDark,
-          title: const Text(
-            'მონაცემების აღდგენა',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: Text(
-            'ეს შეცვლის აპში არსებულ მონაცემებს backup-ის მონაცემებით '
-            '(${_formatBackupDate(backup.createdAt)}). '
-            'აღდგენამდე მიმდინარე მონაცემების შიდა ასლი შეიქმნება. გაგრძელდეს?',
-            style: const TextStyle(color: AppTheme.textSecondary),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('გაუქმება'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('აღდგენა'),
-            ),
-          ],
+      await _confirmAndRestore(backup);
+    } catch (error) {
+      if (mounted) _showSnack(_backupError(error));
+    } finally {
+      if (mounted) setState(() => _backupBusy = false);
+    }
+  }
+
+  Future<void> _restoreLocalBackup(BackupDocument backup) async {
+    if (_backupBusy) return;
+    setState(() => _backupBusy = true);
+    try {
+      await _confirmAndRestore(backup);
+    } catch (error) {
+      if (mounted) _showSnack(_backupError(error));
+    } finally {
+      if (mounted) setState(() => _backupBusy = false);
+    }
+  }
+
+  Future<void> _confirmAndRestore(BackupDocument backup) async {
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.surfaceDark,
+        title: const Text(
+          'მონაცემების აღდგენა',
+          style: TextStyle(color: Colors.white),
         ),
-      );
-      if (confirmed != true || !mounted) return;
-      await _backupService.restore(backup);
-      final reminderRestored = await _syncReminderSettings();
+        content: Text(
+          'ეს შეცვლის აპში არსებულ მონაცემებს backup-ის მონაცემებით '
+          '(${_formatBackupDate(backup.createdAt)}). '
+          'აღდგენამდე მიმდინარე მონაცემების შიდა ასლი შეიქმნება. გაგრძელდეს?',
+          style: const TextStyle(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('გაუქმება'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('აღდგენა'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _backupService.restore(backup);
+    final reminderRestored = await _syncReminderSettings();
+    await _dataService.reloadFromStorage();
+    DataService.notifyDataRestored();
+    if (!mounted) return;
+    setState(() {
+      _storageError = null;
+      _localBackupInventory = null;
+      _lastBackupAt = _dataService.storage.loadLastBackupAt();
+    });
+    _showSnack(
+      reminderRestored
+          ? 'მონაცემები აღდგა'
+          : 'მონაცემები აღდგა, თუმცა შეხსენება ვერ ჩაირთო. შეამოწმე ნებართვები.',
+    );
+  }
+
+  Future<void> _startNewDataAfterRecoveryWarning() async {
+    if (_backupBusy) return;
+    final confirmed = await showStartFreshConfirmation(context);
+    if (confirmed != true || !mounted) return;
+    setState(() => _backupBusy = true);
+    try {
+      await _backupService.createInternalSnapshot();
+      await _dataService.resetUserData();
       await _dataService.reloadFromStorage();
       DataService.notifyDataRestored();
       if (!mounted) return;
       setState(() {
         _storageError = null;
-        _lastBackupAt = _dataService.storage.loadLastBackupAt();
+        _localBackupInventory = null;
+        _lastBackupAt = null;
       });
-      _showSnack(
-        reminderRestored
-            ? 'მონაცემები აღდგა'
-            : 'მონაცემები აღდგა, თუმცა შეხსენება ვერ ჩაირთო. შეამოწმე ნებართვები.',
-      );
+      _loadSettings();
+      _showSnack('ახალი მონაცემებით დაწყება მზად არის');
     } catch (error) {
       if (mounted) _showSnack(_backupError(error));
     } finally {
@@ -678,6 +779,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const Divider(color: AppTheme.glassBorder, height: 1),
+            if (_backupDiscoveryError case final String error) ...[
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  error,
+                  style: const TextStyle(color: AppTheme.errorColor),
+                ),
+              ),
+              _SettingsTile(
+                label: 'Backup-ების ხელახლა მოძიება',
+                subtitle: 'ახალი მონაცემებით დაწყება გამორთულია შემოწმებამდე',
+                trailing: const Icon(
+                  Icons.refresh_rounded,
+                  color: AppTheme.primary,
+                ),
+                onTap: _backupBusy ? null : _discoverLocalBackups,
+              ),
+            ] else if (_localBackupInventory == null)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_localBackupInventory!.backups.isEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  _localBackupInventory!.invalidFiles == 0
+                      ? 'გამოსაყენებელი შიდა backup ვერ მოიძებნა. '
+                            'შეგიძლია გარე backup ფაილის არჩევა ქვემოთ.'
+                      : 'შიდა backup-ების '
+                            '${_localBackupInventory!.invalidFiles} ფაილი '
+                            'დაზიანებულია ან ამ ვერსიასთან შეუთავსებელია. '
+                            'არსებული მონაცემები უცვლელი რჩება.',
+                  style: const TextStyle(color: AppTheme.textSecondary),
+                ),
+              ),
+              _SettingsTile(
+                label: 'ახალი მონაცემებით დაწყება…',
+                subtitle: 'მხოლოდ დადასტურების შემდეგ შეიქმნება ახალი საცავი',
+                trailing: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.errorColor,
+                ),
+                labelColor: AppTheme.errorColor,
+                onTap: _backupBusy ? null : _startNewDataAfterRecoveryWarning,
+              ),
+            ] else ...[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text(
+                  'შიდა სარეზერვო ასლები მოიძებნა. აირჩიე ასლი აღსადგენად; '
+                  'გაუქმების შემთხვევაში არსებული მონაცემები უცვლელი დარჩება.',
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
+              ),
+              for (final entry in _localBackupInventory!.backups)
+                _SettingsTile(
+                  label: 'შიდა backup',
+                  subtitle: _formatBackupDate(entry.document.createdAt),
+                  trailing: const Icon(
+                    Icons.restore_rounded,
+                    color: AppTheme.primary,
+                  ),
+                  onTap: _backupBusy
+                      ? null
+                      : () => _restoreLocalBackup(entry.document),
+                ),
+            ],
+            const Divider(color: AppTheme.glassBorder, height: 1),
           ],
           _SettingsTile(
             label: 'სარეზერვო ასლის შექმნა',
@@ -752,10 +922,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: 'აპის შესახებ',
       icon: Icons.info_outline_rounded,
       children: [
-        const _SettingsTile(
+        _SettingsTile(
           label: 'PayDay',
-          subtitle: 'ვერსია 1.0.0',
-          trailing: SizedBox.shrink(),
+          subtitle: _installedVersion != null
+              ? 'ვერსია $_installedVersion'
+              : _versionLoadFailed
+              ? 'დაინსტალირებული ვერსიის წაკითხვა ვერ მოხერხდა'
+              : 'ვერსიის ჩატვირთვა…',
+          trailing: const SizedBox.shrink(),
         ),
         const Divider(color: AppTheme.glassBorder, height: 1),
         const _SettingsTile(

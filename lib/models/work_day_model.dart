@@ -124,21 +124,26 @@ class WorkDayModel {
           item['id'] is! String ||
           (item['id'] as String).isEmpty ||
           DateTime.tryParse(item['date'] as String? ?? '') == null ||
-          DateTime.tryParse(item['createdAt'] as String? ?? '') == null ||
-          DateTime.tryParse(item['updatedAt'] as String? ?? '') == null ||
-          item['status'] is! String ||
-          !const {
-            'worked',
-            'notWorked',
-            'scheduled',
-            'unmarked',
-          }.contains(item['status']) ||
-          item['dailyWage'] is! num ||
-          !(item['dailyWage'] as num).isFinite ||
-          (item['dailyWage'] as num) < 0) {
+          !_optionalDate(item['createdAt']) ||
+          !_optionalDate(item['updatedAt']) ||
+          !_optionalDate(item['workedAt']) ||
+          !_optionalString(item['objectId']) ||
+          !_optionalString(item['objectName']) ||
+          !_optionalString(item['note']) ||
+          !_optionalString(item['status']) ||
+          (item['dailyWage'] != null &&
+              (item['dailyWage'] is! num ||
+                  !(item['dailyWage'] as num).isFinite ||
+                  (item['dailyWage'] as num) < 0))) {
         throw const FormatException('Work day record is invalid.');
       }
       return WorkDayModel.fromMap(item);
     }).toList();
   }
+
+  static bool _optionalString(Object? value) =>
+      value == null || value is String;
+
+  static bool _optionalDate(Object? value) =>
+      value == null || (value is String && DateTime.tryParse(value) != null);
 }

@@ -204,6 +204,27 @@ void main() {
       expect(result.updateRequired, isFalse);
     });
 
+    test(
+      'same public version with a higher Android build requires update',
+      () async {
+        final service = _service(
+          installedVersion: '1.0.2+3',
+          release: _release(tag: 'v1.0.2', buildNumber: 4),
+        );
+
+        expect((await service.checkForUpdate()).updateRequired, isTrue);
+      },
+    );
+
+    test('same public version and build does not require update', () async {
+      final service = _service(
+        installedVersion: '1.0.2+4',
+        release: _release(tag: 'v1.0.2', buildNumber: 4),
+      );
+
+      expect((await service.checkForUpdate()).updateRequired, isFalse);
+    });
+
     test('newer stable release requires a mandatory update', () async {
       final service = _service(installedVersion: '1.0.0', release: _release());
       final result = await service.checkForUpdate();
@@ -345,7 +366,7 @@ void main() {
   });
 
   group('Mandatory update gate', () {
-    testWidgets('offline check keeps app usable and retries when resumed', (
+    testWidgets('offline check blocks app and retry can recover', (
       tester,
     ) async {
       final service = _FakeMandatoryService()..checkFailuresRemaining = 1;
@@ -361,14 +382,15 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('normal app'), findsOneWidget);
-      expect(find.text('განახლება ვერ შემოწმდა'), findsNothing);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      expect(find.text('normal app'), findsNothing);
+      expect(find.text('განახლების შემოწმება ვერ მოხერხდა'), findsOneWidget);
+      await tester.tap(find.text('ხელახლა ცდა'));
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('normal app'), findsOneWidget);
+      expect(find.text('normal app'), findsNothing);
       expect(find.text('ჩამოტვირთვა და განახლება'), findsOneWidget);
+      expect(find.byTooltip('მოგვიანებით'), findsNothing);
     });
 
     testWidgets('shows the app only when the installed release is current', (
@@ -394,12 +416,14 @@ void main() {
 
 Map<String, dynamic> _releaseJson({
   String tag = 'v1.0.1',
+  int? buildNumber,
   List<Map<String, dynamic>>? assets,
 }) => {
   'tag_name': tag,
   'draft': false,
   'prerelease': false,
-  'body': 'Bug fixes',
+  'body':
+      'Bug fixes${buildNumber == null ? '' : '\n\n<!-- payday-build: $buildNumber -->'}',
   'assets': assets ?? [_apkAsset(), _checksumAsset()],
 };
 
@@ -413,11 +437,12 @@ Map<String, dynamic> _checksumAsset({
       'https://github.com/payday-owner/payday-app/releases/download/v1.0.1/app.apk.sha256',
 }) => {'name': 'app.apk.sha256', 'browser_download_url': url, 'size': 70};
 
-GitHubRelease _release({String tag = 'v1.0.1'}) => GitHubRelease.fromJson(
-  _releaseJson(tag: tag),
-  owner: 'payday-owner',
-  repository: 'payday-app',
-);
+GitHubRelease _release({String tag = 'v1.0.1', int? buildNumber}) =>
+    GitHubRelease.fromJson(
+      _releaseJson(tag: tag, buildNumber: buildNumber),
+      owner: 'payday-owner',
+      repository: 'payday-app',
+    );
 
 UpdateService _service({
   String installedVersion = '1.0.0',

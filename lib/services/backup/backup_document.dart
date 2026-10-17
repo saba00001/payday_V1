@@ -116,6 +116,7 @@ final class BackupDocument {
     final ids = <String>{};
     for (final record in records) {
       final id = record['id'];
+      if (key == 'periods' && (id == null || id == '')) continue;
       if (id is! String || id.isEmpty || !ids.add(id)) {
         throw FormatException('Backup ფაილის „$key“ ID-ები არასწორია.');
       }
@@ -123,31 +124,36 @@ final class BackupDocument {
   }
 
   static void _validateRecord(String collection, Map record) {
-    bool date(String key) =>
-        record[key] is String &&
-        DateTime.tryParse(record[key] as String) != null;
-    bool string(String key, {bool required = false}) =>
-        record[key] is String &&
-        (!required || (record[key] as String).isNotEmpty);
+    bool date(String key, {bool required = false}) => record[key] == null
+        ? !required
+        : record[key] is String &&
+              DateTime.tryParse(record[key] as String) != null;
+    bool string(String key, {bool required = false}) => record[key] == null
+        ? !required
+        : record[key] is String &&
+              (!required || (record[key] as String).isNotEmpty);
     final valid = switch (collection) {
       'objects' =>
         string('name', required: true) &&
             string('address') &&
             string('note') &&
-            const {'active', 'completed'}.contains(record['status']) &&
+            (record['status'] == null ||
+                const {'active', 'completed'}.contains(record['status'])) &&
             date('createdAt') &&
             (record['completedAt'] == null || date('completedAt')),
       'workDays' =>
-        date('date') &&
-            const {
-              'worked',
-              'notWorked',
-              'scheduled',
-              'unmarked',
-            }.contains(record['status']) &&
-            record['dailyWage'] is num &&
-            (record['dailyWage'] as num).isFinite &&
-            (record['dailyWage'] as num) >= 0 &&
+        date('date', required: true) &&
+            (record['status'] == null ||
+                const {
+                  'worked',
+                  'notWorked',
+                  'scheduled',
+                  'unmarked',
+                }.contains(record['status'])) &&
+            (record['dailyWage'] == null ||
+                (record['dailyWage'] is num &&
+                    (record['dailyWage'] as num).isFinite &&
+                    (record['dailyWage'] as num) >= 0)) &&
             date('createdAt') &&
             date('updatedAt') &&
             (record['workedAt'] == null || date('workedAt')) &&
@@ -171,14 +177,16 @@ final class BackupDocument {
             string('objectId') &&
             string('objectName'),
       'periods' =>
-        record['year'] is int &&
-            (record['year'] as int) >= 1 &&
-            record['month'] is int &&
-            (record['month'] as int) >= 1 &&
-            (record['month'] as int) <= 12 &&
-            record['dailyWage'] is num &&
-            (record['dailyWage'] as num).isFinite &&
-            (record['dailyWage'] as num) >= 0 &&
+        (record['year'] == null ||
+                (record['year'] is int && (record['year'] as int) >= 1)) &&
+            (record['month'] == null ||
+                (record['month'] is int &&
+                    (record['month'] as int) >= 1 &&
+                    (record['month'] as int) <= 12)) &&
+            (record['dailyWage'] == null ||
+                (record['dailyWage'] is num &&
+                    (record['dailyWage'] as num).isFinite &&
+                    (record['dailyWage'] as num) >= 0)) &&
             date('createdAt'),
       _ => false,
     };
