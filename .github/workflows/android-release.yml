@@ -28,8 +28,10 @@ jobs:
         with:
           ref: ${{ inputs.source_ref }}
 
+      
       - name: Validate release version
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           APP_VERSION="$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '\r')"
@@ -39,13 +41,11 @@ jobs:
             exit 1
           fi
 
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "::error::Release v1.0.3 already exists. This workflow creates new releases only."
             exit 1
           fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+
 
       - name: Require signing secrets
         env:
