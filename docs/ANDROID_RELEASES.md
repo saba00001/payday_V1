@@ -8,6 +8,9 @@ Settings → About. If the device is offline, PayDay opens normally. Workday
 tracking, salary calculations, backups, and reminders do not require internet.
 The startup screen shows a short animated PayDay mark; debug builds and
 non-Android platforms do not perform update checks.
+The Android launcher uses the PayDay adaptive icon in `mipmap-anydpi-v26`;
+scheduled reminder notifications open the app to a workday confirmation panel
+with an active-object selector.
 
 ## Existing Android identity
 
@@ -47,7 +50,7 @@ in PowerShell. Paste the result only into GitHub's secret field.
 
 `pubspec.yaml` uses Flutter's `major.minor.patch+buildNumber` format:
 
-The current project version is `1.1.4+11` in `pubspec.yaml`. Keep the public
+The current project version is `1.1.5+12` in `pubspec.yaml`. Keep the public
 version and build number aligned with the Android APK version code.
 
 For a new public release:
@@ -55,9 +58,9 @@ For a new public release:
 1. Update the semantic version and increase the Android build number. Each APK
    must have a higher Android version code than the currently published APK.
 2. Commit and push the changes to `main`.
-3. Push the matching version tag (for this build, `v1.1.4`) to run the signed
+3. Push the matching version tag (for this build, `v1.1.5`) to run the signed
    release workflow automatically. Alternatively, dispatch **Android signed
-   release** from `main`, set the release tag to `v1.1.4`, and set `source_ref`
+   release** from `main`, set the release tag to `v1.1.5`, and set `source_ref`
    to `main`.
 4. The workflow validates the version, requires all four signing secrets,
    verifies both the keystore and private-key passwords, builds the signed

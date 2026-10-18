@@ -47,40 +47,21 @@ class AlarmReceiver : BroadcastReceiver() {
         // Open app on notification tap.
         val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_REMINDER_PROMPT, true)
         }
         val openPendingIntent = PendingIntent.getActivity(
             context, 100, openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // YES action — handled by WorkActionReceiver.
-        val workedIntent = Intent(ACTION_WORKED).apply {
-            setClass(context, WorkActionReceiver::class.java)
-        }
-        val workedPendingIntent = PendingIntent.getBroadcast(
-            context, 101, workedIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // NO action — handled by WorkActionReceiver.
-        val notWorkedIntent = Intent(ACTION_NOT_WORKED).apply {
-            setClass(context, WorkActionReceiver::class.java)
-        }
-        val notWorkedPendingIntent = PendingIntent.getBroadcast(
-            context, 102, notWorkedIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("PayDay")
-            .setContentText("იმუშავე დღეს?")
+            .setContentText("შეეხე, რომ მიუთითო — დღეს იმუშავე თუ არა")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setContentIntent(openPendingIntent)
-            .addAction(0, "✓ კი, ვიმუშავე", workedPendingIntent)
-            .addAction(0, "არა, არ მიმუშავია", notWorkedPendingIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
         try {

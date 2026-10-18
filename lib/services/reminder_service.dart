@@ -234,6 +234,19 @@ class ReminderService {
     }
   }
 
+  static Future<bool> consumeReminderPrompt() async {
+    if (!_isAndroid) return false;
+    try {
+      return await _channel.invokeMethod<bool>('consumeReminderPrompt') ??
+          false;
+    } on PlatformException catch (error) {
+      debugPrint('ReminderService.consumeReminderPrompt failed: $error');
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────
 
   static bool get _isAndroid => !kIsWeb && Platform.isAndroid;

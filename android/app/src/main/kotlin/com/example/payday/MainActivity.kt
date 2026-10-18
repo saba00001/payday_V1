@@ -33,11 +33,14 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingBackupResult: MethodChannel.Result? = null
     private var pendingBackupPath: String? = null
     private var pendingBackupIsExport = false
+    private var reminderPromptPending = false
     private var pendingNotificationPermission: MethodChannel.Result? = null
     private val notificationPermissionRequest = 7103
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        reminderPromptPending =
+            intent?.getBooleanExtra(EXTRA_REMINDER_PROMPT, false) == true
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -57,6 +60,13 @@ class MainActivity : FlutterFragmentActivity() {
 
                         "scheduleTestAlarm" -> {
                             result.success(AlarmScheduler.scheduleImmediateTest(this))
+                        }
+
+                        "consumeReminderPrompt" -> {
+                            val shouldPrompt = reminderPromptPending
+                            reminderPromptPending = false
+                            intent?.removeExtra(EXTRA_REMINDER_PROMPT)
+                            result.success(shouldPrompt)
                         }
 
                         "canScheduleExactAlarms" -> {
@@ -371,6 +381,14 @@ class MainActivity : FlutterFragmentActivity() {
             }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_REMINDER_PROMPT, false)) {
+            reminderPromptPending = true
+        }
+    }
+
     @Deprecated("Deprecated in Android API")
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -385,6 +403,10 @@ class MainActivity : FlutterFragmentActivity() {
             grantResults.firstOrNull() ==
                 android.content.pm.PackageManager.PERMISSION_GRANTED
         )
+    }
+
+    companion object {
+        const val EXTRA_REMINDER_PROMPT = "payday_reminder_prompt"
     }
 
     @Deprecated("Deprecated in Android API")

@@ -35,7 +35,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   // TODO: Replace with Riverpod/Bloc for production
   final _dataService = DataService(LocalStorageService());
   late final _backupService = BackupService(_dataService.storage);
@@ -46,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen>
   String? _recoveryError;
   LocalBackupInventory? _backupInventory;
   bool _markingWorked = false; // Guard against rapid double-tap
+  bool _reminderPromptShowing = false;
 
   WorkObjectModel? _todayObject;
   WorkDayModel? _todayWorkDay;
@@ -61,14 +62,23 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     DataService.dataRevision.addListener(_onDataRestored);
     _init();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     DataService.dataRevision.removeListener(_onDataRestored);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _handleReminderPrompt();
+    }
   }
 
   Future<void> _onDataRestored() async {
@@ -102,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen>
       }
       HomeScreen.recoveryMode.value = false;
       _refresh();
+      _handleReminderPrompt();
     } catch (error, stackTrace) {
       if (kDebugMode) {
         debugPrint(
@@ -116,6 +127,173 @@ class _HomeScreenState extends State<HomeScreen>
         HomeScreen.recoveryMode.value = true;
       });
       unawaited(_discoverLocalBackups());
+    }
+  }
+
+  Future<void> _handleReminderPrompt() async {
+    if (!mounted ||
+        !_initialized ||
+        _showStartChoice ||
+        _loadError != null ||
+        _reminderPromptShowing) {
+      return;
+    }
+    if (!await ReminderService.consumeReminderPrompt() || !mounted) return;
+
+    _reminderPromptShowing = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) await _showReminderPrompt();
+      _reminderPromptShowing = false;
+    });
+  }
+
+  Future<void> _showReminderPrompt() async {
+    final activeObjects = _dataService.activeObjects;
+    final existing = _dataService.getWorkDayForDate(DateTime.now());
+    if (existing?.isWorked == true) {
+      final savedObject = existing!.objectName.isEmpty
+          ? ''
+          : ' ობიექტი: ${existing.objectName}.';
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppTheme.surfaceDark,
+          title: const Text('დღევანდელი სამუშაო შენახულია'),
+          content: Text('სამუშაო დღე უკვე აღრიცხულია.$savedObject'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('კარგი'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    final preferredObjectId =
+        _todayObject?.id ??
+        (existing?.objectId.isNotEmpty == true ? existing!.objectId : null) ??
+        _yesterdayObject?.id;
+    var selectedObjectId =
+        activeObjects.any((object) => object.id == preferredObjectId)
+        ? preferredObjectId
+        : activeObjects.isEmpty
+        ? null
+        : activeObjects.first.id;
+    var workedToday = true;
+
+    final response =
+        await showDialog<({bool worked, bool addObject, String? objectId})>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              backgroundColor: AppTheme.surfaceDark,
+              title: const Text(
+                'დღეს იმუშავე?',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RadioGroup<bool>(
+                    groupValue: workedToday,
+                    onChanged: (value) =>
+                        setDialogState(() => workedToday = value ?? false),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        RadioListTile<bool>(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('კი, ვიმუშავე'),
+                          value: true,
+                        ),
+                        RadioListTile<bool>(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('არა, არ მიმუშავია'),
+                          value: false,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (workedToday && activeObjects.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedObjectId,
+                      decoration: const InputDecoration(
+                        labelText: 'რომელ ობიექტზე იმუშავე?',
+                      ),
+                      items: activeObjects
+                          .map(
+                            (object) => DropdownMenuItem(
+                              value: object.id,
+                              child: Text(object.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setDialogState(() => selectedObjectId = value),
+                    ),
+                  ] else if (workedToday) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('ჯერ დაამატე სამუშაო ობიექტი.'),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('მოგვიანებით'),
+                ),
+                if (workedToday && activeObjects.isEmpty)
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, (
+                      worked: false,
+                      addObject: true,
+                      objectId: null,
+                    )),
+                    child: const Text('ობიექტის დამატება'),
+                  )
+                else
+                  FilledButton(
+                    onPressed: workedToday && selectedObjectId == null
+                        ? null
+                        : () => Navigator.pop(dialogContext, (
+                            worked: workedToday,
+                            addObject: false,
+                            objectId: workedToday ? selectedObjectId : null,
+                          )),
+                    child: const Text('დადასტურება'),
+                  ),
+              ],
+            ),
+          ),
+        );
+    if (!mounted || response == null) return;
+
+    if (response.addObject) {
+      _navigateToObjects();
+    } else if (response.worked) {
+      WorkObjectModel? selectedObject;
+      for (final object in activeObjects) {
+        if (object.id == response.objectId) {
+          selectedObject = object;
+          break;
+        }
+      }
+      if (selectedObject == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('არჩეული ობიექტი ვეღარ მოიძებნა.')),
+        );
+        return;
+      }
+      setState(() => _todayObject = selectedObject);
+      await _onMarkWorked();
+    } else {
+      await _onMarkNotWorked();
     }
   }
 

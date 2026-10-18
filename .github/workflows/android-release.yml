@@ -4,13 +4,13 @@ name: Android signed release
 on:
   push:
     tags:
-      - v1.1.4
+      - v1.1.5
   workflow_dispatch:
     inputs:
       tag:
         description: New release tag
         required: true
-        default: v1.1.4
+        default: v1.1.5
         type: string
       source_ref:
         description: Branch or commit containing the release source
@@ -36,8 +36,8 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           APP_VERSION="$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '\r')"
-          if [ "$RELEASE_TAG" != "v1.1.4" ] || [ "$APP_VERSION" != "1.1.4+11" ]; then
-            echo "::error::Expected tag v1.1.4 and pubspec version 1.1.4+11."
+          if [ "$RELEASE_TAG" != "v1.1.5" ] || [ "$APP_VERSION" != "1.1.5+12" ]; then
+            echo "::error::Expected tag v1.1.5 and pubspec version 1.1.5+12."
             exit 1
           fi
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
@@ -134,6 +134,14 @@ jobs:
           EXPECTED_CODE="${APP_VERSION##*+}"
           if [ -z "$NEW_CODE" ] || [ "$NEW_CODE" != "$EXPECTED_CODE" ]; then
             echo "::error::The APK version code does not match the pubspec build number."
+            exit 1
+          fi
+          ICON_BADGING="$("$AAPT" dump badging "$NEW_APK")"
+          if ! printf '%s\n' "$ICON_BADGING" |
+            grep -F "application-icon-65534:'res/mipmap-anydpi-v26/ic_launcher.xml'" >/dev/null ||
+            ! grep -F 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml >/dev/null ||
+            ! grep -F 'ic_payday_launcher_foreground' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml >/dev/null; then
+            echo "::error::The APK does not use the expected PayDay adaptive launcher icon."
             exit 1
           fi
 
