@@ -414,6 +414,32 @@ void main() {
       expect(find.text('ჩამოტვირთვა და განახლება'), findsNothing);
     });
 
+    testWidgets('app resume does not trigger another minute-level check', (
+      tester,
+    ) async {
+      final service = _FakeMandatoryService(installedVersion: '1.1.2')
+        ..checkFailuresRemaining = 1;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MandatoryUpdateGate(
+            enabled: true,
+            updateService: service,
+            child: const Text('normal app'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(service.checkCount, 1);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+
+      expect(service.checkCount, 1);
+      expect(find.text('normal app'), findsOneWidget);
+    });
+
     testWidgets('online newer release still blocks the normal app', (
       tester,
     ) async {
@@ -583,11 +609,13 @@ class _FakeMandatoryService implements MandatoryUpdateService {
   final String installedVersion;
   var checkFailuresRemaining = 0;
   var failureIsOffline = true;
+  var checkCount = 0;
 
   _FakeMandatoryService({this.installedVersion = '1.0.0'});
 
   @override
   Future<UpdateCheckResult> checkForUpdate() async {
+    checkCount++;
     if (checkFailuresRemaining > 0) {
       checkFailuresRemaining--;
       throw UpdateException(

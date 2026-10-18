@@ -1,10 +1,10 @@
 # Android releases, updates, and local backups
 
-On Android release builds, PayDay checks `saba00001/payday_V1` for the latest
-stable GitHub Release before showing the normal app. If a newer version is
-available, access remains blocked until the update is installed. If the check
-cannot reach GitHub (for example, when the device is offline), PayDay opens
-normally and retries the check when the app returns to the foreground. Workday
+On Android release builds, PayDay checks `saba00001/payday_V1` once at startup.
+If a newer version is available, access remains blocked until the update is
+installed. A background check can run when the app returns to the foreground,
+but no more than once every six hours; users can also check manually in
+Settings → About. If the device is offline, PayDay opens normally. Workday
 tracking, salary calculations, backups, and reminders do not require internet.
 The startup screen shows a short animated PayDay mark; debug builds and
 non-Android platforms do not perform update checks.
@@ -47,7 +47,7 @@ in PowerShell. Paste the result only into GitHub's secret field.
 
 `pubspec.yaml` uses Flutter's `major.minor.patch+buildNumber` format:
 
-The current project version is `1.1.2+9` in `pubspec.yaml`. Keep the public
+The current project version is `1.1.3+10` in `pubspec.yaml`. Keep the public
 version and build number aligned with the Android APK version code.
 
 For a new public release:
@@ -55,20 +55,20 @@ For a new public release:
 1. Update the semantic version and increase the Android build number. Each APK
    must have a higher Android version code than the currently published APK.
 2. Commit and push the changes to `main`.
-3. Push the matching version tag (for this build, `v1.1.2`) to run the signed
+3. Push the matching version tag (for this build, `v1.1.3`) to run the signed
    release workflow automatically. Alternatively, dispatch **Android signed
-   release** from `main`, set the release tag to `v1.1.2`, and set `source_ref`
+   release** from `main`, set the release tag to `v1.1.3`, and set `source_ref`
    to `main`.
 4. The workflow validates the version, requires all four signing secrets,
    verifies both the keystore and private-key passwords, builds the signed
    universal APK, checks it against the established signing-certificate digest
    and pubspec build number, calculates the SHA-256 checksum, and creates the
-   GitHub Release.
+   GitHub Release. After upload succeeds, it removes other versioned PayDay
+   releases and `v*` tags, leaving the current release and tag.
 
 5. Verify the Release is public and has exactly one `.apk` plus its matching
    `.apk.sha256` checksum file.
 
-The workflow keeps existing releases and tags when publishing a new version.
 If the workflow reports a
 signing-key validation error, correct the corresponding repository Actions
 secret in GitHub Settings; never send keystore passwords through chat or commit

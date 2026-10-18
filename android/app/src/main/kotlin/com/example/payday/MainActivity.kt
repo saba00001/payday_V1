@@ -167,10 +167,30 @@ class MainActivity : FlutterFragmentActivity() {
                         }
 
                         "canPostNotifications" -> {
-                            result.success(
+                            val runtimePermissionGranted =
                                 Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
                                     checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
                                     android.content.pm.PackageManager.PERMISSION_GRANTED
+                            val appNotificationsEnabled =
+                                androidx.core.app.NotificationManagerCompat
+                                    .from(this)
+                                    .areNotificationsEnabled()
+                            val reminderChannelEnabled =
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    val manager =
+                                        getSystemService(NOTIFICATION_SERVICE)
+                                            as? android.app.NotificationManager
+                                    manager
+                                        ?.getNotificationChannel(AlarmReceiver.CHANNEL_ID)
+                                        ?.importance !=
+                                        android.app.NotificationManager.IMPORTANCE_NONE
+                                } else {
+                                    true
+                                }
+                            result.success(
+                                runtimePermissionGranted &&
+                                    appNotificationsEnabled &&
+                                    reminderChannelEnabled
                             )
                         }
 

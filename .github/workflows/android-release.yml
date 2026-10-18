@@ -4,13 +4,13 @@ name: Android signed release
 on:
   push:
     tags:
-      - v1.1.2
+      - v1.1.3
   workflow_dispatch:
     inputs:
       tag:
         description: New release tag
         required: true
-        default: v1.1.2
+        default: v1.1.3
         type: string
       source_ref:
         description: Branch or commit containing the release source
@@ -36,8 +36,8 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           APP_VERSION="$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '\r')"
-          if [ "$RELEASE_TAG" != "v1.1.2" ] || [ "$APP_VERSION" != "1.1.2+9" ]; then
-            echo "::error::Expected tag v1.1.2 and pubspec version 1.1.2+9."
+          if [ "$RELEASE_TAG" != "v1.1.3" ] || [ "$APP_VERSION" != "1.1.3+10" ]; then
+            echo "::error::Expected tag v1.1.3 and pubspec version 1.1.3+10."
             exit 1
           fi
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
@@ -157,3 +157,33 @@ jobs:
             --target "$SOURCE_REF" \
             --title "PayDay ${RELEASE_TAG}" \
             --generate-notes
+
+      - name: Remove older PayDay releases and tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release list \
+            --repo "$GITHUB_REPOSITORY" \
+            --limit 1000 \
+            --json tagName \
+            --jq '.[].tagName' |
+          while IFS= read -r old_tag; do
+            [ -z "$old_tag" ] && continue
+            [ "$old_tag" = "$RELEASE_TAG" ] && continue
+            gh release delete "$old_tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --yes \
+              --cleanup-tag
+          done
+
+          gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v" \
+            --jq '.[].ref' |
+          while IFS= read -r old_ref; do
+            [ -z "$old_ref" ] && continue
+            [ "$old_ref" = "refs/tags/$RELEASE_TAG" ] && continue
+            gh api --method DELETE \
+              "repos/$GITHUB_REPOSITORY/git/$old_ref"
+          done

@@ -35,6 +35,8 @@ class MandatoryUpdateGate extends StatefulWidget {
 
 class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
     with WidgetsBindingObserver {
+  static const _automaticCheckInterval = Duration(hours: 6);
+
   late final MandatoryUpdateService _service =
       widget.updateService ?? UpdateService();
   _GateState _state = _GateState.checking;
@@ -44,6 +46,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
   double? _downloadProgress;
   bool _openingPermissionSettings = false;
   bool _checkingAgain = false;
+  DateTime? _lastCheckAt;
 
   @override
   void initState() {
@@ -70,14 +73,22 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
     if (_openingPermissionSettings) {
       _openingPermissionSettings = false;
       _installVerifiedApk();
-    } else {
-      _checkForUpdate();
+    } else if (_state == _GateState.installerLaunched ||
+        _lastCheckAt == null ||
+        DateTime.now().difference(_lastCheckAt!) >= _automaticCheckInterval) {
+      _checkForUpdate(force: true);
     }
   }
 
-  Future<void> _checkForUpdate() async {
+  Future<void> _checkForUpdate({bool force = false}) async {
     if (_checkingAgain) return;
+    if (!force &&
+        _lastCheckAt != null &&
+        DateTime.now().difference(_lastCheckAt!) < _automaticCheckInterval) {
+      return;
+    }
     _checkingAgain = true;
+    _lastCheckAt = DateTime.now();
     setState(() {
       _state = _GateState.checking;
       _error = null;
@@ -114,7 +125,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
   Future<void> _downloadAndInstall() async {
     final release = _checkResult?.release;
     if (release == null) {
-      await _checkForUpdate();
+      await _checkForUpdate(force: true);
       return;
     }
     setState(() {
@@ -226,7 +237,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
             ],
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: _checkForUpdate,
+              onPressed: () => _checkForUpdate(force: true),
               child: const Text('ხელახლა ცდა'),
             ),
           ],
@@ -294,7 +305,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
           else
             FilledButton.icon(
               onPressed: _state == _GateState.installerLaunched
-                  ? _checkForUpdate
+                  ? () => _checkForUpdate(force: true)
                   : _downloadAndInstall,
               icon: Icon(
                 _state == _GateState.installerLaunched

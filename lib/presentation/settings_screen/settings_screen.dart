@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -11,18 +10,26 @@ import '../../routes/app_routes.dart';
 import '../../services/reminder_service.dart';
 import '../../services/backup/backup_document.dart';
 import '../../services/backup/backup_service.dart';
+import '../../services/update/github_release.dart';
+import '../../services/update/update_installer.dart';
+import '../../services/update/update_service.dart';
 import 'recovery_confirmation_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final MandatoryUpdateService? updateService;
+
+  const SettingsScreen({super.key, this.updateService});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
   final _dataService = DataService(LocalStorageService());
   late final _backupService = BackupService(_dataService.storage);
+  late final MandatoryUpdateService _updateService =
+      widget.updateService ?? UpdateService();
 
   // Reminder state
   bool _reminderEnabled = false;
@@ -50,20 +57,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
   LocalBackupInventory? _localBackupInventory;
   String? _installedVersion;
   bool _versionLoadFailed = false;
+  bool _updateBusy = false;
+  String? _updateStatus;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     DataService.dataRevision.addListener(_onDataRestored);
-    _isAndroid = !kIsWeb && Platform.isAndroid;
+    _isAndroid =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     _loadInstalledVersion();
     _init();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     DataService.dataRevision.removeListener(_onDataRestored);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isAndroid) {
+      _checkPermissions();
+    }
   }
 
   Future<void> _onDataRestored() async {
@@ -117,6 +136,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
       if (mounted) setState(() => _versionLoadFailed = true);
+    }
+  }
+
+  Future<void> _checkForUpdates() async {
+    if (_updateBusy) return;
+    setState(() {
+      _updateBusy = true;
+      _updateStatus = null;
+    });
+    try {
+      final result = await _updateService.checkForUpdate();
+      if (!mounted) return;
+      if (!result.updateRequired) {
+        setState(() => _updateStatus = 'უახლესი ვერსია გაქვს');
+        _showSnack('PayDay განახლებულია');
+        return;
+      }
+      final release = result.release;
+      final shouldInstall = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppTheme.surfaceDark,
+          title: const Text(
+            'განახლება ხელმისაწვდომია',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              'დაინსტალირებულია ${result.installedVersion}; '
+              'ხელმისაწვდომია ${release.tagName}.'
+              '${release.notes.isEmpty ? '' : '\n\n${release.notes}'}',
+              style: const TextStyle(color: AppTheme.textSecondary),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('მოგვიანებით'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('განახლება'),
+            ),
+          ],
+        ),
+      );
+      if (shouldInstall != true || !mounted) return;
+      setState(() => _updateStatus = 'განახლება იტვირთება…');
+      final apkPath = await _updateService.downloadAndVerify(
+        release,
+        onProgress: (received, total) {
+          if (mounted && total > 0) {
+            setState(
+              () => _updateStatus =
+                  'იტვირთება ${(received * 100 ~/ total)}%',
+            );
+          }
+        },
+      );
+      final installResult = await _updateService.installVerifiedApk(apkPath);
+      if (!mounted) return;
+      if (installResult == InstallerResult.permissionRequired) {
+        setState(() => _updateStatus = 'ინსტალაციის ნებართვა საჭიროა');
+        await _updateService.openInstallPermissionSettings();
+        _showSnack(
+          'ჩართე PayDay-იდან აპების ინსტალაციის ნებართვა და დაბრუნდი აპში.',
+        );
+      } else {
+        setState(() => _updateStatus = 'Android-ის ინსტალერი გაიხსნა');
+        _showSnack('დაასრულე განახლება Android-ის ინსტალერში.');
+      }
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is UpdateException
+          ? error.message
+          : 'განახლების შემოწმება ან ჩამოტვირთვა ვერ მოხერხდა.';
+      setState(() => _updateStatus = 'შემოწმება ვერ მოხერხდა');
+      _showSnack(message);
+    } finally {
+      if (mounted) setState(() => _updateBusy = false);
     }
   }
 
@@ -326,8 +425,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _requestNotificationPermission() async {
-    final granted = await ReminderService.requestNotificationPermission();
-    if (!granted) await ReminderService.openNotificationSettings();
+    await ReminderService.requestNotificationPermission();
+    if (!await ReminderService.canPostNotifications()) {
+      await ReminderService.openNotificationSettings();
+    }
     await _checkPermissions();
   }
 
@@ -335,10 +436,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (value) {
       var canNotify = await ReminderService.canPostNotifications();
       if (!canNotify) {
-        canNotify = await ReminderService.requestNotificationPermission();
+        await ReminderService.requestNotificationPermission();
+        canNotify = await ReminderService.canPostNotifications();
       }
       if (!canNotify) {
         await _dataService.storage.saveReminderEnabled(false);
+        await ReminderService.openNotificationSettings();
         if (mounted) {
           setState(() => _reminderEnabled = false);
           _showSnack('შეხსენებისთვის საჭიროა შეტყობინებების ნებართვა.');
@@ -353,6 +456,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() => _reminderEnabled = scheduled);
         if (!scheduled) _showSnack('შეხსენების დაგეგმვა ვერ მოხერხდა.');
+      }
+      if (scheduled &&
+          !(await ReminderService.canScheduleExactAlarms()) &&
+          mounted) {
+        _showSnack(
+          'შეხსენება ჩაირთო, თუმცა ზუსტი მაღვიძარის ნებართვის გარეშე '
+          'შეიძლება დაგვიანდეს.',
+        );
       }
     } else {
       await _dataService.storage.saveReminderEnabled(false);
@@ -381,25 +492,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (picked == null) return;
-    setState(() {
-      _reminderHour = picked.hour;
-      _reminderMinute = picked.minute;
-    });
-    await _dataService.storage.saveReminderTime(picked.hour, picked.minute);
     if (_reminderEnabled) {
       final scheduled = await ReminderService.scheduleAlarm(
         hour: picked.hour,
         minute: picked.minute,
       );
-      if (!scheduled && mounted) {
-        _showSnack('ახალი შეხსენების დროის დაგეგმვა ვერ მოხერხდა.');
+      if (!scheduled) {
+        if (mounted) {
+          _showSnack('ახალი შეხსენების დროის დაგეგმვა ვერ მოხერხდა.');
+        }
+        return;
       }
+    }
+    await _dataService.storage.saveReminderTime(picked.hour, picked.minute);
+    if (mounted) {
+      setState(() {
+        _reminderHour = picked.hour;
+        _reminderMinute = picked.minute;
+      });
     }
   }
 
   Future<void> _testReminder() async {
     if (!_isAndroid) {
       _showSnack('შეხსენება მხოლოდ Android-ზე მუშაობს');
+      return;
+    }
+    var canNotify = await ReminderService.canPostNotifications();
+    if (!canNotify) {
+      await ReminderService.requestNotificationPermission();
+      canNotify = await ReminderService.canPostNotifications();
+    }
+    if (!canNotify) {
+      await ReminderService.openNotificationSettings();
+      if (mounted) {
+        _showSnack('შეხსენების სანახავად ჩართე PayDay-ის შეტყობინებები.');
+      }
       return;
     }
     final scheduled = await ReminderService.scheduleTestAlarm();
@@ -939,6 +1067,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
               : 'ვერსიის ჩატვირთვა…',
           trailing: const SizedBox.shrink(),
         ),
+        if (_isAndroid) ...[
+          const Divider(color: AppTheme.glassBorder, height: 1),
+          _SettingsTile(
+            label: 'განახლების შემოწმება',
+            subtitle: _updateBusy
+                ? (_updateStatus ?? 'მიმდინარეობს…')
+                : (_updateStatus ?? 'შეამოწმე ახალი ვერსია'),
+            trailing: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _updateBusy
+                  ? const SizedBox(
+                      key: ValueKey('update-progress'),
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(
+                      key: ValueKey('update-icon'),
+                      Icons.system_update_alt_rounded,
+                      color: AppTheme.primary,
+                      size: 20,
+                    ),
+            ),
+            onTap: _updateBusy ? null : _checkForUpdates,
+          ),
+        ],
         const Divider(color: AppTheme.glassBorder, height: 1),
         const _SettingsTile(
           label: 'ყველა მონაცემი ლოკალურია',
