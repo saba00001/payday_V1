@@ -58,6 +58,18 @@ class _ObjectsScreenState extends State<ObjectsScreen> {
     });
   }
 
+  Future<void> _reloadAndRefresh() async {
+    try {
+      await _dataService.reloadFromStorage();
+      _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('მონაცემების განახლება ვერ მოხერხდა.')),
+      );
+    }
+  }
+
   List<WorkObjectModel> _filterList(List<WorkObjectModel> list) {
     if (_searchQuery.isEmpty) return list;
     return list.where((o) {
@@ -283,7 +295,7 @@ class _ObjectsScreenState extends State<ObjectsScreen> {
                       : RefreshIndicator(
                           color: AppTheme.primary,
                           backgroundColor: AppTheme.surfaceDark,
-                          onRefresh: () async => _refresh(),
+                          onRefresh: _reloadAndRefresh,
                           child: ListView(
                             padding: const EdgeInsets.fromLTRB(
                               AppTheme.spaceM,

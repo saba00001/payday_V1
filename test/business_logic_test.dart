@@ -2824,5 +2824,102 @@ void main() {
         'ობიექტი N2',
       );
     });
+
+    test(
+      'object details can retrieve that object’s advance balances',
+      () async {
+        final svc = await _makeService(wage: 80.0);
+        final objectA = await svc.createObject(name: 'ობიექტი N2');
+        final objectB = await svc.createObject(name: 'ობიექტი N1');
+        await svc.addAdvance(
+          amount: 100,
+          objectId: objectA.id,
+          dateTime: DateTime(2026, 9, 1),
+        );
+        await svc.addAdvance(
+          amount: 50,
+          objectId: objectB.id,
+          dateTime: DateTime(2026, 9, 1),
+        );
+
+        final balances = svc.getAdvanceBalancesForObject(objectA.id);
+
+        expect(balances, hasLength(1));
+        expect(balances.single.advance.objectName, 'ობიექტი N2');
+        expect(balances.single.remaining, 100);
+      },
+    );
+
+    test(
+      'salary payments allocate by oldest net wages and count later days',
+      () async {
+        final svc = await _makeService(wage: 80.0);
+        final object = await svc.createObject(name: 'ობიექტი N2');
+        await svc.addAdvance(
+          amount: 100,
+          objectId: object.id,
+          dateTime: DateTime(2026, 9, 1),
+        );
+        for (int day = 1; day <= 3; day++) {
+          await svc.markWorked(
+            date: DateTime(2026, 9, day),
+            objectId: object.id,
+            objectName: object.name,
+          );
+        }
+        await svc.addTransaction(
+          amount: 100,
+          objectId: object.id,
+          dateTime: DateTime(2026, 9, 3),
+        );
+
+        final progress = svc.salaryPaymentProgress;
+
+        expect(progress.values, contains(1.0));
+        expect(progress.values, contains(0.5));
+
+        final afterPaymentService = await _makeService(wage: 80.0);
+        final afterPaymentObject = await afterPaymentService.createObject(
+          name: 'ობიექტი N2',
+        );
+        for (int day = 1; day <= 3; day++) {
+          await afterPaymentService.markWorked(
+            date: DateTime(2026, 9, day),
+            objectId: afterPaymentObject.id,
+            objectName: afterPaymentObject.name,
+          );
+        }
+        await afterPaymentService.addTransaction(
+          amount: 80,
+          objectId: afterPaymentObject.id,
+          dateTime: DateTime(2026, 9, 2),
+        );
+        expect(afterPaymentService.workedDaysSinceLastPayment, 1);
+      },
+    );
+  });
+
+  group('Data refresh', () {
+    test(
+      'reloadFromStorage updates a service after external changes',
+      () async {
+        final storage = _FakeStorage();
+        final writer = DataService(storage);
+        await writer.init();
+        await writer.createObject(name: 'პირველი ობიექტი');
+
+        final reader = DataService(storage);
+        await reader.init();
+        expect(reader.objects, hasLength(1));
+
+        await writer.createObject(name: 'მეორე ობიექტი');
+        expect(reader.objects, hasLength(1));
+
+        await reader.reloadFromStorage();
+
+        expect(reader.objects, hasLength(2));
+        expect(reader.objects.last.name, 'მეორე ობიექტი');
+      },
+    );
   });
 }

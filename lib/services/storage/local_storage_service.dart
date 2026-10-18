@@ -32,6 +32,7 @@ class LocalStorageService {
   static const String _dataVersionKey = 'payday_data_version';
   static const String _lastBackupAtKey = 'payday_last_backup_at';
   static const String _legacyRecoveryKey = 'payday_pre_migration_backup_v1';
+  static const String _preResetRecoveryKey = 'payday_pre_reset_recovery_v1';
 
   static const int _currentDataVersion = 2;
 
@@ -52,6 +53,20 @@ class LocalStorageService {
     final prefs = _requirePrefs();
     final previousRawData = exportRawStorageState();
     try {
+      if (previousRawData.isNotEmpty) {
+        final recovery = jsonEncode({
+          'format': 'payday-storage-recovery',
+          'version': prefs.getInt(_dataVersionKey) ?? 0,
+          'createdAt': DateTime.now().toUtc().toIso8601String(),
+          'reason': 'confirmed-user-reset',
+          'data': previousRawData,
+        });
+        if (!await prefs.setString(_preResetRecoveryKey, recovery)) {
+          throw const LocalStorageException(
+            'გასუფთავებამდე მონაცემების შიდა ასლის შენახვა ვერ მოხერხდა.',
+          );
+        }
+      }
       for (final key in _backupKeys) {
         if (!await prefs.remove(key)) {
           throw LocalStorageException(

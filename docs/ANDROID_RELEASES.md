@@ -17,9 +17,9 @@ published `v1.0.2` APK is signed with a certificate whose SHA-256 digest is
 `f333ea34b4c83c276e36cec926faeaa57567390832552021aa01472722870db9`. The
 corresponding private signing key is not present in the repository or this
 development environment. Configure the original key in GitHub Actions secrets;
-do not generate a replacement key. The release workflow compares the newly
-built APK's certificate with the currently published APK before replacing its
-assets. Android will reject updates signed with a different key.
+do not generate a replacement key. The release workflow checks the built
+APK's certificate against this established digest. Android will reject updates
+signed with a different key.
 
 ## One-time GitHub setup
 
@@ -47,32 +47,35 @@ in PowerShell. Paste the result only into GitHub's secret field.
 
 `pubspec.yaml` uses Flutter's `major.minor.patch+buildNumber` format:
 
-The current project version is `1.0.3+5` in `pubspec.yaml`. Do not reset the
-version or build number. The existing `v1.0.1` and `v1.0.2` Releases and tags
-are historical releases and should not be deleted or moved.
+The current project version is `1.1.0+7` in `pubspec.yaml`. Keep the public
+version and build number aligned with the Android APK version code. After the
+verified `v1.1.0` release is created, the workflow deletes historical release
+entries and Git tags, leaving only `v1.1.0` as a public release.
 
 For a new public release:
 
 1. Update the semantic version and increase the Android build number. Each APK
    must have a higher Android version code than the currently published APK.
 2. Commit and push the changes to `main`.
-3. In GitHub Actions, run **Android signed release** from `main`, set the
-   release tag to match `pubspec.yaml` (for example `v1.0.3` for
-   `1.0.3+5`), and set `source_ref` to `main`.
+3. Push the matching version tag (for this build, `v1.1.0`) to run the signed
+   release workflow automatically. Alternatively, dispatch **Android signed
+   release** from `main`, set the release tag to `v1.1.0`, and set `source_ref`
+   to `main`.
 4. The workflow validates the version, requires all four signing secrets,
    verifies both the keystore and private-key passwords, builds the signed
-   universal APK, checks signing-certificate and version-code continuity
-   against the existing `v1.0.2` APK, calculates the SHA-256 checksum, and
-   creates the GitHub Release.
+   universal APK, checks it against the established signing-certificate digest
+   and pubspec build number, calculates the SHA-256 checksum, creates the
+   GitHub Release, and removes historical releases and tags.
 
 5. Verify the Release is public and has exactly one `.apk` plus its matching
    `.apk.sha256` checksum file.
 
-Do not delete or replace assets from an existing Release when publishing a new
-version. The workflow creates a new Release only after the build and signing
-checks succeed. If the workflow reports a signing-key validation error, correct
-the corresponding repository Actions secret in GitHub Settings; never send
-keystore passwords through chat or commit them to the repository.
+The workflow keeps the existing releases until the new build passes tests,
+signature checks, and upload; historical releases and tags are removed only
+after the new release is successfully created. If the workflow reports a
+signing-key validation error, correct the corresponding repository Actions
+secret in GitHub Settings; never send keystore passwords through chat or commit
+them to the repository.
 
 ## Local commands
 
@@ -134,7 +137,9 @@ records are loaded with the model's backward-compatible defaults. Before a
 storage schema version advances, PayDay saves a raw local recovery snapshot.
 If local data still cannot be read, Settings offers validated internal
 snapshots and external backup selection. Starting with new data is a separate,
-explicitly confirmed action and keeps a recovery snapshot first.
+explicitly confirmed action and stores a raw copy of the original preference
+values before clearing user data. This recovery copy remains app-private and is
+not a substitute for an exported backup outside the app.
 
 In **Settings → Data**, use **Create backup** to save a versioned JSON backup
 through Android's system file picker. Choose a location outside PayDay's

@@ -74,6 +74,18 @@ class _HistoryScreenState extends State<HistoryScreen>
     });
   }
 
+  Future<void> _reloadAndRefresh() async {
+    try {
+      await _dataService.reloadFromStorage();
+      _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('მონაცემების განახლება ვერ მოხერხდა.')),
+      );
+    }
+  }
+
   void _setFilter(String? objectId) {
     setState(() => _filterObjectId = objectId);
     _refresh();
@@ -204,7 +216,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                       : RefreshIndicator(
                           color: AppTheme.primary,
                           backgroundColor: AppTheme.surfaceDark,
-                          onRefresh: () async => _refresh(),
+                          onRefresh: _reloadAndRefresh,
                           child: CustomScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
                             slivers: [

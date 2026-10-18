@@ -13,13 +13,15 @@ class CalendarLegendWidget extends StatelessWidget {
         AppTheme.spaceM,
         AppTheme.spaceS,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: AppTheme.spaceM,
+        runSpacing: AppTheme.spaceS,
         children: [
           _LegendItem(color: AppTheme.success, label: 'ვიმუშავე'),
-          const SizedBox(width: AppTheme.spaceM),
+          _LegendItem(color: AppTheme.secondary, label: 'ხელფასი მიღებულია'),
+          _LegendItem(color: AppTheme.primary, label: 'ნაწილობრივ მიღებულია'),
           _LegendItem(color: AppTheme.errorColor, label: 'არ მიმუშავია'),
-          const SizedBox(width: AppTheme.spaceM),
           _LegendItem(color: AppTheme.warning, label: 'დაგეგმილი'),
         ],
       ),

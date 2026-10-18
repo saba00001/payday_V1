@@ -508,6 +508,81 @@ class DataService {
       ..sort((a, b) => b.advance.dateTime.compareTo(a.advance.dateTime));
   }
 
+  List<AdvanceBalance> getAdvanceBalancesForObject(
+    String objectId, {
+    bool includePaid = true,
+  }) {
+    return getAdvanceBalances(includePaid: includePaid)
+        .where((balance) => balance.advance.objectId == objectId)
+        .toList();
+  }
+
+  /// Allocates recorded salary payments to the oldest eligible workdays.
+  /// Payments without an object are applied across all objects; object-bound
+  /// payments are restricted to workdays for that object.
+  Map<String, double> get salaryPaymentAllocation {
+    final advanceByWorkDay = _advanceAllocation.byWorkDay;
+    final orderedDays = _workDays.where((day) => day.isWorked).toList()
+      ..sort((a, b) {
+        final dateOrder = a.date.compareTo(b.date);
+        return dateOrder != 0 ? dateOrder : a.createdAt.compareTo(b.createdAt);
+      });
+    final orderedPayments = [..._transactions]
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    final paidByWorkDay = <String, double>{};
+
+    for (final payment in orderedPayments) {
+      var amountRemaining = payment.amount;
+      for (final day in orderedDays) {
+        if (amountRemaining <= 0.001) break;
+        if (_dateOnly(day.date).isAfter(_dateOnly(payment.dateTime)) ||
+            (payment.objectId.isNotEmpty &&
+                payment.objectId != day.objectId)) {
+          continue;
+        }
+        final netWage = (day.dailyWage - (advanceByWorkDay[day.id] ?? 0))
+            .clamp(0.0, double.infinity);
+        final alreadyPaid = paidByWorkDay[day.id] ?? 0;
+        final unpaid = (netWage - alreadyPaid).clamp(0.0, double.infinity);
+        final applied = amountRemaining < unpaid ? amountRemaining : unpaid;
+        if (applied <= 0) continue;
+        paidByWorkDay[day.id] = alreadyPaid + applied;
+        amountRemaining -= applied;
+      }
+    }
+    return Map.unmodifiable(paidByWorkDay);
+  }
+
+  Map<String, double> get salaryPaymentProgress {
+    final paidAmounts = salaryPaymentAllocation;
+    final advanceByWorkDay = _advanceAllocation.byWorkDay;
+    return Map.unmodifiable({
+      for (final day in _workDays.where((day) => day.isWorked))
+        if ((day.dailyWage - (advanceByWorkDay[day.id] ?? 0)) > 0)
+          day.id: ((paidAmounts[day.id] ?? 0) /
+                  (day.dailyWage - (advanceByWorkDay[day.id] ?? 0)))
+              .clamp(0.0, 1.0),
+    });
+  }
+
+  int get workedDaysSinceLastPayment {
+    if (_transactions.isEmpty) {
+      return _workDays.where((day) => day.isWorked).length;
+    }
+    final lastPayment = _transactions
+        .map((transaction) => transaction.dateTime)
+        .reduce((latest, date) => date.isAfter(latest) ? date : latest);
+    final lastPaymentDate = _dateOnly(lastPayment);
+    return _workDays
+        .where(
+          (day) =>
+              day.isWorked && _dateOnly(day.date).isAfter(lastPaymentDate),
+        )
+        .length;
+  }
+
+  DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
   Future<AdvanceModel?> addAdvance({
     required double amount,
     required String objectId,

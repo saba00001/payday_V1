@@ -8,6 +8,7 @@ class CalendarGridWidget extends StatelessWidget {
   final int month;
   final List<WorkDayModel> workDays;
   final List<int> workSchedule;
+  final Map<String, double> salaryPaymentProgress;
   final void Function(DateTime) onDayTap;
 
   const CalendarGridWidget({
@@ -16,6 +17,7 @@ class CalendarGridWidget extends StatelessWidget {
     required this.month,
     required this.workDays,
     required this.workSchedule,
+    this.salaryPaymentProgress = const {},
     required this.onDayTap,
   });
 
@@ -84,6 +86,8 @@ class CalendarGridWidget extends StatelessWidget {
                 workDay: workDay,
                 isToday: isToday,
                 isScheduled: isScheduled,
+                salaryPaymentProgress:
+                    salaryPaymentProgress[workDay?.id] ?? 0,
                 onTap: () => onDayTap(date),
               );
             },
@@ -99,6 +103,7 @@ class _DayCell extends StatelessWidget {
   final WorkDayModel? workDay;
   final bool isToday;
   final bool isScheduled;
+  final double salaryPaymentProgress;
   final VoidCallback onTap;
 
   const _DayCell({
@@ -106,10 +111,17 @@ class _DayCell extends StatelessWidget {
     required this.workDay,
     required this.isToday,
     required this.isScheduled,
+    required this.salaryPaymentProgress,
     required this.onTap,
   });
 
   Color get _bgColor {
+    if (salaryPaymentProgress >= 0.999) {
+      return AppTheme.secondary.withAlpha(38);
+    }
+    if (salaryPaymentProgress > 0) {
+      return AppTheme.primary.withAlpha(26);
+    }
     if (workDay?.status == WorkDayStatus.worked) {
       return AppTheme.success.withAlpha(38);
     }
@@ -124,6 +136,10 @@ class _DayCell extends StatelessWidget {
 
   Color get _borderColor {
     if (isToday) return AppTheme.primary;
+    if (salaryPaymentProgress >= 0.999) {
+      return AppTheme.secondary.withAlpha(102);
+    }
+    if (salaryPaymentProgress > 0) return AppTheme.primary.withAlpha(77);
     if (workDay?.status == WorkDayStatus.worked) {
       return AppTheme.success.withAlpha(102);
     }
@@ -138,6 +154,8 @@ class _DayCell extends StatelessWidget {
 
   Color get _textColor {
     if (isToday) return AppTheme.primary;
+    if (salaryPaymentProgress >= 0.999) return AppTheme.secondary;
+    if (salaryPaymentProgress > 0) return AppTheme.primary;
     if (workDay?.status == WorkDayStatus.worked) return AppTheme.success;
     if (workDay?.status == WorkDayStatus.notWorked) {
       return AppTheme.errorColor;
@@ -176,7 +194,20 @@ class _DayCell extends StatelessWidget {
                 color: _textColor,
               ),
             ),
-            if (workDay?.status == WorkDayStatus.worked)
+            if (salaryPaymentProgress > 0)
+              Positioned(
+                bottom: 3,
+                child: Icon(
+                  salaryPaymentProgress >= 0.999
+                      ? Icons.check_circle
+                      : Icons.circle,
+                  size: 5,
+                  color: salaryPaymentProgress >= 0.999
+                      ? AppTheme.secondary
+                      : AppTheme.primary,
+                ),
+              )
+            else if (workDay?.status == WorkDayStatus.worked)
               Positioned(
                 bottom: 3,
                 child: Container(

@@ -24,6 +24,9 @@ class _CalendarScreenState extends State<CalendarScreen>
   late int _displayMonth;
   List<WorkDayModel> _monthWorkDays = [];
   List<int> _workSchedule = [1, 2, 3, 4, 5];
+  Map<String, double> _salaryPaymentProgress = {};
+  int _workedDaysSinceLastPayment = 0;
+  DateTime? _lastPaymentDate;
 
   @override
   bool get wantKeepAlive => true;
@@ -63,7 +66,28 @@ class _CalendarScreenState extends State<CalendarScreen>
         _displayMonth,
       );
       _workSchedule = _dataService.workSchedule;
+      _salaryPaymentProgress = _dataService.salaryPaymentProgress;
+      _workedDaysSinceLastPayment = _dataService.workedDaysSinceLastPayment;
+      _lastPaymentDate = _dataService.transactions.isEmpty
+          ? null
+          : _dataService.transactions
+                .map((transaction) => transaction.dateTime)
+                .reduce(
+                  (latest, date) => date.isAfter(latest) ? date : latest,
+                );
     });
+  }
+
+  Future<void> _refreshFromStorage() async {
+    try {
+      await _dataService.reloadFromStorage();
+      _loadMonth();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('მონაცემების განახლება ვერ მოხერხდა.')),
+      );
+    }
   }
 
   void _prevMonth() {
@@ -166,6 +190,44 @@ class _CalendarScreenState extends State<CalendarScreen>
                   onNext: _nextMonth,
                 ),
                 const CalendarLegendWidget(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.glassBackground,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                      border: Border.all(color: AppTheme.glassBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.payments_outlined,
+                          color: AppTheme.secondary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _lastPaymentDate == null
+                                ? 'ხელფასის ჩარიცხვა ჯერ არ არის'
+                                : 'ბოლო ჩარიცხვის შემდეგ: '
+                                      '$_workedDaysSinceLastPayment სამუშაო დღე',
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: !_initialized
                       ? const Center(
@@ -173,14 +235,21 @@ class _CalendarScreenState extends State<CalendarScreen>
                             color: AppTheme.primary,
                           ),
                         )
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.only(bottom: 120),
-                          child: CalendarGridWidget(
-                            year: _displayYear,
-                            month: _displayMonth,
-                            workDays: _monthWorkDays,
-                            workSchedule: _workSchedule,
-                            onDayTap: _onDayTap,
+                      : RefreshIndicator(
+                          color: AppTheme.primary,
+                          backgroundColor: AppTheme.surfaceDark,
+                          onRefresh: _refreshFromStorage,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 120),
+                            child: CalendarGridWidget(
+                              year: _displayYear,
+                              month: _displayMonth,
+                              workDays: _monthWorkDays,
+                              workSchedule: _workSchedule,
+                              salaryPaymentProgress: _salaryPaymentProgress,
+                              onDayTap: _onDayTap,
+                            ),
                           ),
                         ),
                 ),

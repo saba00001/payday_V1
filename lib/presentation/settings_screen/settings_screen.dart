@@ -258,7 +258,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirmed != true || !mounted) return;
     setState(() => _backupBusy = true);
     try {
-      await _backupService.createInternalSnapshot();
       await _dataService.resetUserData();
       await _dataService.reloadFromStorage();
       DataService.notifyDataRestored();
@@ -314,6 +313,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _canUseFullScreenIntent = canFsi;
         _canPostNotifications = canNotify;
       });
+    }
+    if (_reminderEnabled && canNotify) {
+      final scheduled = await ReminderService.scheduleAlarm(
+        hour: _reminderHour,
+        minute: _reminderMinute,
+      );
+      if (!scheduled && kDebugMode) {
+        debugPrint('PayDay reminder could not be rescheduled after permission check.');
+      }
     }
   }
 

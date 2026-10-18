@@ -26,6 +26,7 @@ class _ObjectDetailScreenState extends State<ObjectDetailScreen> {
   WorkObjectModel? _object;
   Map<String, dynamic> _stats = {};
   List<WorkDayModel> _workDays = [];
+  List<AdvanceBalance> _advances = [];
 
   @override
   void initState() {
@@ -42,6 +43,9 @@ class _ObjectDetailScreenState extends State<ObjectDetailScreen> {
       return;
     }
     final stats = widget.dataService.getObjectStats(widget.objectId);
+    final advances = widget.dataService.getAdvanceBalancesForObject(
+      widget.objectId,
+    );
     final days =
         widget.dataService
             .getWorkDaysForObject(widget.objectId)
@@ -52,6 +56,7 @@ class _ObjectDetailScreenState extends State<ObjectDetailScreen> {
       _object = obj;
       _stats = stats;
       _workDays = days;
+      _advances = advances;
     });
   }
 
@@ -565,6 +570,82 @@ class _ObjectDetailScreenState extends State<ObjectDetailScreen> {
                     ),
                   ),
                 ),
+                if (_advances.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppTheme.spaceM,
+                        0,
+                        AppTheme.spaceM,
+                        AppTheme.spaceM,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(AppTheme.spaceM),
+                        decoration: BoxDecoration(
+                          color: AppTheme.glassBackground,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+                          border: Border.all(
+                            color: AppTheme.warning.withAlpha(77),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.account_balance_wallet_outlined,
+                                  color: AppTheme.warning,
+                                  size: 18,
+                                ),
+                                SizedBox(width: AppTheme.spaceS),
+                                Text(
+                                  'ამ ობიექტზე აღებული ავანსები',
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppTheme.spaceS),
+                            for (final balance in _advances)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: AppTheme.spaceS,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '${GeorgianDateUtils.formatDate(balance.advance.dateTime)} · '
+                                        '${AppTheme.formatGel(balance.advance.amount)}',
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      balance.remaining <= 0.001
+                                          ? 'დაფარულია'
+                                          : 'დარჩა ${AppTheme.formatGel(balance.remaining)}',
+                                      style: TextStyle(
+                                        color: balance.remaining <= 0.001
+                                            ? AppTheme.success
+                                            : AppTheme.warning,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 // Work history
                 SliverToBoxAdapter(
                   child: Padding(

@@ -2,12 +2,15 @@
 name: Android signed release
 
 on:
+  push:
+    tags:
+      - v1.1.0
   workflow_dispatch:
     inputs:
       tag:
         description: New release tag
         required: true
-        default: v1.0.3
+        default: v1.1.0
         type: string
       source_ref:
         description: Branch or commit containing the release source
@@ -25,20 +28,20 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_ref }}
+          ref: ${{ inputs.source_ref || inputs.tag || github.ref }}
 
       - name: Validate release version
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           APP_VERSION="$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '\r')"
-          if [ "$RELEASE_TAG" != "v1.0.3" ] || [ "$APP_VERSION" != "1.0.3+5" ]; then
-            echo "::error::Expected tag v1.0.3 and pubspec version 1.0.3+5."
+          if [ "$RELEASE_TAG" != "v1.1.0" ] || [ "$APP_VERSION" != "1.1.0+7" ]; then
+            echo "::error::Expected tag v1.1.0 and pubspec version 1.1.0+7."
             exit 1
           fi
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release v1.0.3 already exists."
+            echo "::error::Release v1.1.0 already exists."
             exit 1
           fi
 
@@ -68,6 +71,11 @@ jobs:
 
       - name: Install Flutter dependencies
         run: flutter pub get
+
+      - name: Run Flutter tests and analysis
+        run: |
+          flutter test
+          flutter analyze --no-fatal-infos
 
       - name: Prepare signing key
         env:
@@ -109,28 +117,23 @@ jobs:
           flutter build apk --release --dart-define=UPDATE_REPOSITORY="$UPDATE_REPOSITORY"
 
       - name: Verify signature continuity
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p "$RUNNER_TEMP/previous-release"
-          gh release download v1.0.2 --repo "$GITHUB_REPOSITORY" --pattern "app-release.apk" --dir "$RUNNER_TEMP/previous-release"
-          OLD_APK="$RUNNER_TEMP/previous-release/app-release.apk"
+          EXPECTED_CERT="f333ea34b4c83c276e36cec926faeaa57567390832552021aa01472722870db9"
           NEW_APK="build/app/outputs/flutter-apk/app-release.apk"
-          test -s "$OLD_APK"
           test -s "$NEW_APK"
           BUILD_TOOLS_VERSION="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
           APKSIGNER="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner"
           AAPT="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt"
-          OLD_CERT="$("$APKSIGNER" verify --print-certs "$OLD_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
           NEW_CERT="$("$APKSIGNER" verify --print-certs "$NEW_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1)"
-          if [ -z "$OLD_CERT" ] || [ "$OLD_CERT" != "$NEW_CERT" ]; then
-            echo "::error::The new APK signing certificate differs from v1.0.2."
+          if [ -z "$NEW_CERT" ] || [ "$EXPECTED_CERT" != "$NEW_CERT" ]; then
+            echo "::error::The new APK signing certificate differs from the established PayDay signing certificate."
             exit 1
           fi
-          OLD_CODE="$("$AAPT" dump badging "$OLD_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
           NEW_CODE="$("$AAPT" dump badging "$NEW_APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)"
-          if [ -z "$OLD_CODE" ] || [ -z "$NEW_CODE" ] || [ "$NEW_CODE" -le "$OLD_CODE" ]; then
-            echo "::error::The new APK version code must be higher than v1.0.2."
+          APP_VERSION="$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '\r')"
+          EXPECTED_CODE="${APP_VERSION##*+}"
+          if [ -z "$NEW_CODE" ] || [ "$NEW_CODE" != "$EXPECTED_CODE" ]; then
+            echo "::error::The APK version code does not match the pubspec build number."
             exit 1
           fi
 
@@ -144,8 +147,8 @@ jobs:
       - name: Create new GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-          SOURCE_REF: ${{ inputs.source_ref }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
           gh release create "$RELEASE_TAG" \
             "$RUNNER_TEMP/app-release.apk" \
@@ -154,3 +157,24 @@ jobs:
             --target "$SOURCE_REF" \
             --title "PayDay ${RELEASE_TAG}" \
             --generate-notes
+
+      - name: Remove historical releases and tags
+        if: ${{ inputs.tag == 'v1.1.0' || github.ref_name == 'v1.1.0' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName' |
+          while IFS= read -r tag; do
+            if [ -n "$tag" ] && [ "$tag" != "$RELEASE_TAG" ]; then
+              gh release delete "$tag" --yes --repo "$GITHUB_REPOSITORY"
+            fi
+          done
+
+          gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/" --jq '.[].ref' |
+          while IFS= read -r ref; do
+            tag="${ref#refs/tags/}"
+            if [ -n "$tag" ] && [ "$tag" != "$RELEASE_TAG" ]; then
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag"
+            fi
+          done

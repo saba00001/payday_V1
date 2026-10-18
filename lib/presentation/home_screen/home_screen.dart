@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_export.dart';
@@ -82,6 +84,16 @@ class _HomeScreenState extends State<HomeScreen>
         return;
       }
       await _dataService.reloadFromStorage();
+      if (!kIsWeb &&
+          Platform.isAndroid &&
+          _dataService.storage.loadReminderEnabled()) {
+        final reminderScheduled = await _syncRestoredReminder();
+        if (!reminderScheduled && kDebugMode) {
+          debugPrint(
+            'PayDay saved reminder could not be rescheduled on startup.',
+          );
+        }
+      }
       _refresh();
     } catch (error, stackTrace) {
       if (kDebugMode) {
@@ -129,7 +141,13 @@ class _HomeScreenState extends State<HomeScreen>
       final backup = await _backupService.selectBackup();
       if (!mounted || backup == null) return;
       await _restoreBackup(backup);
-    } catch (error) {
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+          'PayDay external backup restore failed (${error.runtimeType}).',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
       if (mounted) {
         setState(() => _recoveryError = _localizedRecoveryError(error));
       }
@@ -232,7 +250,6 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       if (_loadError != null) {
         await _dataService.storage.init();
-        await _backupService.createInternalSnapshot();
         await _dataService.resetUserData();
       } else {
         await _dataService.reloadFromStorage();
@@ -244,7 +261,13 @@ class _HomeScreenState extends State<HomeScreen>
         _backupInventory = null;
       });
       _refresh();
-    } catch (error) {
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+          'PayDay start-new-data action failed (${error.runtimeType}).',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
       if (mounted) {
         setState(() => _recoveryError = _localizedRecoveryError(error));
       }
@@ -281,13 +304,21 @@ class _HomeScreenState extends State<HomeScreen>
   String _localizedRecoveryError(Object error) {
     if (error is LocalStorageException) return error.message;
     if (error is FormatException) return error.message;
+    if (error is FileSystemException) {
+      return 'მონაცემების უსაფრთხო ასლის შენახვა ვერ მოხერხდა. '
+          'შეამოწმე მოწყობილობის თავისუფალი ადგილი და სცადე თავიდან.';
+    }
+    if (error is PlatformException) {
+      return 'Android-ის მონაცემთა საცავი დროებით მიუწვდომელია. '
+          'მონაცემები არ გასუფთავებულა; სცადე ხელახლა.';
+    }
     if (kDebugMode) {
       debugPrint(
         'PayDay startup recovery action failed (${error.runtimeType}).',
       );
     }
-    return 'მონაცემების აღდგენა ვერ მოხერხდა. '
-        'მიმდინარე მონაცემები არ წაშლილა; სცადე სხვა backup.';
+    return 'ოპერაცია ვერ დასრულდა და მონაცემების მდგომარეობა '
+        'ვერ დადასტურდა. არ წაშალო აპი; სცადე ხელახლა ან აირჩიე სხვა backup.';
   }
 
   String _formatBackupDate(DateTime date) {
@@ -335,6 +366,23 @@ class _HomeScreenState extends State<HomeScreen>
       _currentDailyWage = _dataService.getDailyWageForDate(now);
       _summaryRefreshKey++; // Force MonthlySummaryWidget to reload
     });
+  }
+
+  Future<void> _reloadAndRefresh() async {
+    try {
+      await _dataService.reloadFromStorage();
+      _refresh();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('PayDay home refresh failed (${error.runtimeType}).');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('მონაცემების განახლება ვერ მოხერხდა.')),
+        );
+      }
+    }
   }
 
   Future<void> _onSelectObject(WorkObjectModel obj) async {
@@ -595,7 +643,7 @@ class _HomeScreenState extends State<HomeScreen>
               child: RefreshIndicator(
                 color: AppTheme.primary,
                 backgroundColor: AppTheme.surfaceDark,
-                onRefresh: () async => _refresh(),
+                onRefresh: _reloadAndRefresh,
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
