@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../../core/app_export.dart';
 import '../../core/georgian_date_utils.dart';
 import '../../services/backup/backup_document.dart';
 import '../../services/backup/backup_service.dart';
+import '../../services/device_authenticator.dart';
 import '../../services/reminder_service.dart';
 import '../../routes/app_routes.dart';
 import '../settings_screen/recovery_confirmation_dialog.dart';
@@ -189,9 +191,48 @@ class _HomeScreenState extends State<HomeScreen>
           builder: (dialogContext) => StatefulBuilder(
             builder: (context, setDialogState) => AlertDialog(
               backgroundColor: AppTheme.surfaceDark,
-              title: const Text(
-                'დღეს იმუშავე?',
-                style: TextStyle(color: Colors.white),
+              surfaceTintColor: Colors.transparent,
+              elevation: 28,
+              shadowColor: AppTheme.primary.withValues(alpha: 0.28),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+                side: BorderSide(
+                  color: AppTheme.primary.withValues(alpha: 0.22),
+                ),
+              ),
+              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+              contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+              title: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.primary.withValues(alpha: 0.15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primary.withValues(alpha: 0.2),
+                          blurRadius: 20,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.work_history_rounded,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      'დღეს იმუშავე?',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -201,16 +242,39 @@ class _HomeScreenState extends State<HomeScreen>
                     groupValue: workedToday,
                     onChanged: (value) =>
                         setDialogState(() => workedToday = value ?? false),
-                    child: const Column(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         RadioListTile<bool>(
-                          contentPadding: EdgeInsets.zero,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          tileColor: Colors.white.withValues(alpha: 0.04),
+                          selectedTileColor: AppTheme.primary.withValues(
+                            alpha: 0.12,
+                          ),
+                          selected: workedToday,
+                          activeColor: AppTheme.primary,
                           title: Text('კი, ვიმუშავე'),
                           value: true,
                         ),
+                        const SizedBox(height: 8),
                         RadioListTile<bool>(
-                          contentPadding: EdgeInsets.zero,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          tileColor: Colors.white.withValues(alpha: 0.04),
+                          selectedTileColor: AppTheme.primary.withValues(
+                            alpha: 0.12,
+                          ),
+                          selected: !workedToday,
+                          activeColor: AppTheme.primary,
                           title: Text('არა, არ მიმუშავია'),
                           value: false,
                         ),
@@ -429,6 +493,21 @@ class _HomeScreenState extends State<HomeScreen>
     if (_loadError != null) {
       final confirmed = await showStartFreshConfirmation(context);
       if (confirmed != true || !mounted) return;
+      try {
+        final authenticated = await DeviceAuthenticator.authenticate(
+          localizedReason:
+              'მონაცემების წაშლისა და თავიდან დაწყების დასადასტურებლად',
+        );
+        if (!authenticated || !mounted) return;
+      } on LocalAuthException {
+        if (mounted) {
+          setState(
+            () => _recoveryError =
+                'ვერიფიკაცია ვერ მოხერხდა. მონაცემები არ შეცვლილა.',
+          );
+        }
+        return;
+      }
     }
     setState(() {
       _recoveryBusy = true;

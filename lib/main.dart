@@ -9,6 +9,7 @@ import '../widgets/custom_error_widget.dart';
 import './routes/app_routes.dart';
 import './theme/app_theme.dart';
 import './presentation/update/mandatory_update_gate.dart';
+import './widgets/app_lock_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,18 +53,21 @@ class MyApp extends StatelessWidget {
           title: 'payday',
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
-          themeMode: ThemeMode.light,
+          themeMode: ThemeMode.dark,
           // 🚨 CRITICAL: NEVER REMOVE OR MODIFY
           builder: (context, child) {
-            return MandatoryUpdateGate(
-              enabled:
-                  defaultTargetPlatform == TargetPlatform.android &&
-                  kReleaseMode,
-              child: MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(1.0)),
-                child: child!,
+            return AppLockGate(
+              enabled: defaultTargetPlatform == TargetPlatform.android,
+              child: MandatoryUpdateGate(
+                enabled:
+                    defaultTargetPlatform == TargetPlatform.android &&
+                    kReleaseMode,
+                child: MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(1.0)),
+                  child: child!,
+                ),
               ),
             );
           },

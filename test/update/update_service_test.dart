@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -414,6 +415,33 @@ void main() {
       expect(find.text('ჩამოტვირთვა და განახლება'), findsNothing);
     });
 
+    testWidgets('slow update check does not block startup', (tester) async {
+      final service = _FakeMandatoryService(installedVersion: '1.1.6')
+        ..pendingCheck = Completer<UpdateCheckResult>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MandatoryUpdateGate(
+            enabled: true,
+            updateService: service,
+            child: const Text('normal app'),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 850));
+
+      expect(find.text('normal app'), findsOneWidget);
+
+      service.pendingCheck!.complete(
+        UpdateCheckResult(
+          installedVersion: '1.1.6',
+          release: _release(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('normal app'), findsOneWidget);
+    });
+
     testWidgets('app resume does not trigger another minute-level check', (
       tester,
     ) async {
@@ -459,7 +487,9 @@ void main() {
       expect(find.text('ჩამოტვირთვა და განახლება'), findsOneWidget);
     });
 
-    testWidgets('invalid release response still fails closed', (tester) async {
+    testWidgets('invalid release response does not block app access', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: MandatoryUpdateGate(
@@ -474,9 +504,8 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('normal app'), findsNothing);
-      expect(find.text('განახლების შემოწმება ვერ მოხერხდა'), findsOneWidget);
-      expect(find.text('ხელახლა ცდა'), findsOneWidget);
+      expect(find.text('normal app'), findsOneWidget);
+      expect(find.text('განახლების შემოწმება ვერ მოხერხდა'), findsNothing);
     });
 
     testWidgets('current version opens without offering an update', (
@@ -610,12 +639,14 @@ class _FakeMandatoryService implements MandatoryUpdateService {
   var checkFailuresRemaining = 0;
   var failureIsOffline = true;
   var checkCount = 0;
+  Completer<UpdateCheckResult>? pendingCheck;
 
   _FakeMandatoryService({this.installedVersion = '1.0.0'});
 
   @override
   Future<UpdateCheckResult> checkForUpdate() async {
     checkCount++;
+    if (pendingCheck != null) return pendingCheck!.future;
     if (checkFailuresRemaining > 0) {
       checkFailuresRemaining--;
       throw UpdateException(

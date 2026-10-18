@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -10,6 +11,7 @@ import '../../routes/app_routes.dart';
 import '../../services/reminder_service.dart';
 import '../../services/backup/backup_document.dart';
 import '../../services/backup/backup_service.dart';
+import '../../services/device_authenticator.dart';
 import '../../services/update/github_release.dart';
 import '../../services/update/update_installer.dart';
 import '../../services/update/update_service.dart';
@@ -331,6 +333,11 @@ class _SettingsScreenState extends State<SettingsScreen>
       ),
     );
     if (confirmed != true || !mounted) return;
+    if (!await _authenticateSensitiveAction(
+      'მონაცემების backup-იდან აღსადგენად დაადასტურე ვინაობა',
+    )) {
+      return;
+    }
     await _backupService.restore(backup);
     final reminderRestored = await _syncReminderSettings();
     await _dataService.reloadFromStorage();
@@ -352,6 +359,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     if (_backupBusy) return;
     final confirmed = await showStartFreshConfirmation(context);
     if (confirmed != true || !mounted) return;
+    if (!await _authenticateSensitiveAction(
+      'მონაცემების წაშლისა და თავიდან დაწყების დასადასტურებლად',
+    )) {
+      return;
+    }
     setState(() => _backupBusy = true);
     try {
       await _dataService.resetUserData();
@@ -596,7 +608,10 @@ class _SettingsScreenState extends State<SettingsScreen>
         ],
       ),
     );
-    if (confirmed == true) {
+    if (confirmed == true &&
+        await _authenticateSensitiveAction(
+          'ყველა მონაცემის წაშლის დასადასტურებლად',
+        )) {
       try {
         await _backupService.createInternalSnapshot();
         await _dataService.clearAll();
@@ -605,6 +620,23 @@ class _SettingsScreenState extends State<SettingsScreen>
       } catch (error) {
         _showSnack(_backupError(error));
       }
+    }
+  }
+
+  Future<bool> _authenticateSensitiveAction(String localizedReason) async {
+    try {
+      return await DeviceAuthenticator.authenticate(
+        localizedReason: localizedReason,
+      );
+    } on LocalAuthException catch (error) {
+      if (mounted) {
+        _showSnack(
+          error.code == LocalAuthExceptionCode.noCredentialsSet
+              ? 'ტელეფონზე ჩართე ბიომეტრია ან ეკრანის PIN-კოდი.'
+              : 'ვერიფიკაცია ვერ მოხერხდა. მონაცემები არ შეცვლილა.',
+        );
+      }
+      return false;
     }
   }
 

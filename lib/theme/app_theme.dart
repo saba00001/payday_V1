@@ -174,10 +174,38 @@ class AppTheme {
     ),
     cardTheme: CardThemeData(
       color: surfaceDark,
-      elevation: 0,
+      elevation: 3,
+      shadowColor: const Color(0x3300D4AA),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusL),
         side: const BorderSide(color: glassBorder, width: 1),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: surfaceDark,
+      surfaceTintColor: Colors.transparent,
+      elevation: 24,
+      shadowColor: const Color(0x5500D4AA),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radiusXL),
+        side: const BorderSide(color: glassBorder),
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: surfaceDark,
+      surfaceTintColor: Colors.transparent,
+      elevation: 20,
+      showDragHandle: true,
+      dragHandleColor: textMuted,
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        elevation: 2,
+        shadowColor: const Color(0x4400D4AA),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusM),
+        ),
       ),
     ),
     inputDecorationTheme: InputDecorationThemeData(

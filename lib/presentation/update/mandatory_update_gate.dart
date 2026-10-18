@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
@@ -46,6 +48,8 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
   double? _downloadProgress;
   bool _openingPermissionSettings = false;
   bool _checkingAgain = false;
+  bool _showStartupSplash = true;
+  Timer? _startupSplashTimer;
   DateTime? _lastCheckAt;
 
   @override
@@ -54,15 +58,19 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
     if (widget.enabled) {
       WidgetsBinding.instance.addObserver(this);
       _checkForUpdate();
-    } else {
-      Future<void>.delayed(const Duration(milliseconds: 850), () {
-        if (mounted) setState(() => _state = _GateState.upToDate);
-      });
     }
+    _startupSplashTimer = Timer(const Duration(milliseconds: 850), () {
+      if (!mounted) return;
+      setState(() {
+        _showStartupSplash = false;
+        if (!widget.enabled) _state = _GateState.upToDate;
+      });
+    });
   }
 
   @override
   void dispose() {
+    _startupSplashTimer?.cancel();
     if (widget.enabled) WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -193,10 +201,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
   @override
   Widget build(BuildContext context) {
     final result = _checkResult;
-    if (_state == _GateState.upToDate || _state == _GateState.offline) {
-      return widget.child;
-    }
-    if (_state == _GateState.checking) {
+    if (_showStartupSplash && _state == _GateState.checking) {
       return const _UpdateStatusScreen(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -219,30 +224,11 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
         ),
       );
     }
-    if (_state == _GateState.failed) {
-      return _UpdateStatusScreen(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_rounded, size: 48),
-            const SizedBox(height: 16),
-            const Text(
-              'განახლების შემოწმება ვერ მოხერხდა',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, textAlign: TextAlign.center),
-            ],
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: () => _checkForUpdate(force: true),
-              child: const Text('ხელახლა ცდა'),
-            ),
-          ],
-        ),
-      );
+    if (_state == _GateState.upToDate ||
+        _state == _GateState.offline ||
+        _state == _GateState.checking ||
+        _state == _GateState.failed) {
+      return widget.child;
     }
     if (result == null) {
       return const _UpdateStatusScreen(
@@ -254,7 +240,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.system_update_alt_rounded, size: 48),
+          const Center(child: PaydayStartupMark(size: 84)),
           const SizedBox(height: 16),
           Text(
             _state == _GateState.installerLaunched
@@ -265,20 +251,6 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'დაყენებულია ${result.installedVersion} · ახალი ${result.release.tagName}',
-            textAlign: TextAlign.center,
-          ),
-          if (result.release.notes.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              result.release.notes,
-              maxLines: 8,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-          ],
           if (_error case final String error) ...[
             const SizedBox(height: 12),
             Text(error, textAlign: TextAlign.center),
@@ -295,9 +267,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
             ),
           ],
           const SizedBox(height: 24),
-          if (_state == _GateState.downloading)
-            const Center(child: CircularProgressIndicator())
-          else if (_state == _GateState.permissionRequired)
+          if (_state == _GateState.permissionRequired)
             FilledButton(
               onPressed: _openPermissionSettings,
               child: const Text('ნებართვის ჩართვა'),

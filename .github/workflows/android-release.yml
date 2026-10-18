@@ -4,13 +4,13 @@ name: Android signed release
 on:
   push:
     tags:
-      - v1.1.5
+      - v*
   workflow_dispatch:
     inputs:
       tag:
         description: New release tag
         required: true
-        default: v1.1.5
+        default: v1.1.6
         type: string
       source_ref:
         description: Branch or commit containing the release source
@@ -36,8 +36,10 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           APP_VERSION="$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '\r')"
-          if [ "$RELEASE_TAG" != "v1.1.5" ] || [ "$APP_VERSION" != "1.1.5+12" ]; then
-            echo "::error::Expected tag v1.1.5 and pubspec version 1.1.5+12."
+          PUBLIC_VERSION="${APP_VERSION%%+*}"
+          EXPECTED_TAG="v$PUBLIC_VERSION"
+          if [ -z "$APP_VERSION" ] || [ "$RELEASE_TAG" != "$EXPECTED_TAG" ]; then
+            echo "::error::Release tag must match the public version in pubspec.yaml ($EXPECTED_TAG)."
             exit 1
           fi
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then

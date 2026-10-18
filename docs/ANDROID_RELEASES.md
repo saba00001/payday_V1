@@ -1,10 +1,12 @@
 # Android releases, updates, and local backups
 
-On Android release builds, PayDay checks `saba00001/payday_V1` once at startup.
-If a newer version is available, access remains blocked until the update is
-installed. A background check can run when the app returns to the foreground,
-but no more than once every six hours; users can also check manually in
-Settings → About. If the device is offline, PayDay opens normally. Workday
+On Android release builds, PayDay checks `saba00001/payday_V1` in the
+background once at startup. Checking for updates never blocks the dashboard;
+if the device is offline or GitHub cannot be reached, PayDay opens normally.
+A newer release can be downloaded from the update prompt, and users can also
+check manually in Settings → About. Android opens its system package installer
+after the APK is verified, and the user must confirm installation there.
+Workday
 tracking, salary calculations, backups, and reminders do not require internet.
 The startup screen shows a short animated PayDay mark; debug builds and
 non-Android platforms do not perform update checks.
@@ -50,7 +52,7 @@ in PowerShell. Paste the result only into GitHub's secret field.
 
 `pubspec.yaml` uses Flutter's `major.minor.patch+buildNumber` format:
 
-The current project version is `1.1.5+12` in `pubspec.yaml`. Keep the public
+The current project version is `1.1.6+13` in `pubspec.yaml`. Keep the public
 version and build number aligned with the Android APK version code.
 
 For a new public release:
@@ -58,9 +60,9 @@ For a new public release:
 1. Update the semantic version and increase the Android build number. Each APK
    must have a higher Android version code than the currently published APK.
 2. Commit and push the changes to `main`.
-3. Push the matching version tag (for this build, `v1.1.5`) to run the signed
+3. Push the matching version tag (for this build, `v1.1.6`) to run the signed
    release workflow automatically. Alternatively, dispatch **Android signed
-   release** from `main`, set the release tag to `v1.1.5`, and set `source_ref`
+   release** from `main`, set the release tag to `v1.1.6`, and set `source_ref`
    to `main`.
 4. The workflow validates the version, requires all four signing secrets,
    verifies both the keystore and private-key passwords, builds the signed
@@ -119,9 +121,9 @@ signed with a certificate accepted for this installed application. Do not
 replace a release asset unless the signing-certificate continuity check passes.
 
 If GitHub is unreachable or the release response cannot be validated, the
-normal interface stays blocked and the user can retry the check. No update is
-claimed to have succeeded until Android reports the installed version after
-the system installer returns.
+normal interface remains available; the user can retry the update check in
+Settings → About. No update is claimed to have succeeded until Android reports
+the installed version after the system installer returns.
 
 ## Local data and backup recovery
 
@@ -170,3 +172,11 @@ the reminder notification channel are enabled. Use **Test reminder** to
 confirm that notifications reach the device; opening Android settings and
 returning to PayDay refreshes permission state and reschedules an enabled
 reminder. The **Check for updates** action is under **Settings → About**.
+
+## App lock
+
+On Android, PayDay uses the device's biometric or screen-lock credential when
+the app is opened or resumed after leaving it. Restoring a backup, starting
+with new data after a recovery warning, and clearing all data also require
+fresh device authentication after confirmation. Configure a fingerprint, face
+unlock, PIN, pattern, or password in Android's device security settings first.

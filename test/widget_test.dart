@@ -7,6 +7,7 @@
 // are correct.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:payday/main.dart';
@@ -19,7 +20,9 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
     await tester.pumpWidget(const MyApp());
+    debugDefaultTargetPlatformOverride = null;
     await tester.pump(const Duration(milliseconds: 900));
     for (
       var attempt = 0;
