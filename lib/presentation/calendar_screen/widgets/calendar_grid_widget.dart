@@ -63,34 +63,56 @@ class CalendarGridWidget extends StatelessWidget {
           ),
           const SizedBox(height: AppTheme.spaceS),
           // Grid
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              childAspectRatio: 1.0,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
+          Container(
+            padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppTheme.surfaceElevated.withAlpha(160),
+                  AppTheme.surfaceDark.withAlpha(190),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppTheme.glassBorder),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.accentBlue.withAlpha(12),
+                  blurRadius: 30,
+                  offset: const Offset(0, 12),
+                ),
+              ],
             ),
-            itemCount: startOffset + daysInMonth,
-            itemBuilder: (_, index) {
-              if (index < startOffset) return const SizedBox.shrink();
-              final day = index - startOffset + 1;
-              final date = DateTime(year, month, day);
-              final workDay = _getWorkDay(day);
-              final isToday = isCurrentMonth && today.day == day;
-              final isScheduled = workSchedule.contains(date.weekday);
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                childAspectRatio: 0.92,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 5,
+              ),
+              itemCount: startOffset + daysInMonth,
+              itemBuilder: (_, index) {
+                if (index < startOffset) return const SizedBox.shrink();
+                final day = index - startOffset + 1;
+                final date = DateTime(year, month, day);
+                final workDay = _getWorkDay(day);
+                final isToday = isCurrentMonth && today.day == day;
+                final isScheduled = workSchedule.contains(date.weekday);
 
-              return _DayCell(
-                day: day,
-                workDay: workDay,
-                isToday: isToday,
-                isScheduled: isScheduled,
-                salaryPaymentProgress:
-                    salaryPaymentProgress[workDay?.id] ?? 0,
-                onTap: () => onDayTap(date),
-              );
-            },
+                return _DayCell(
+                  day: day,
+                  workDay: workDay,
+                  isToday: isToday,
+                  isScheduled: isScheduled,
+                  salaryPaymentProgress:
+                      salaryPaymentProgress[workDay?.id] ?? 0,
+                  onTap: () => onDayTap(date),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -117,16 +139,16 @@ class _DayCell extends StatelessWidget {
 
   Color get _bgColor {
     if (salaryPaymentProgress >= 0.999) {
-      return AppTheme.secondary.withAlpha(38);
+      return AppTheme.secondary.withAlpha(48);
     }
     if (salaryPaymentProgress > 0) {
       return AppTheme.primary.withAlpha(26);
     }
     if (workDay?.status == WorkDayStatus.worked) {
-      return AppTheme.success.withAlpha(38);
+      return AppTheme.success.withAlpha(44);
     }
     if (workDay?.status == WorkDayStatus.notWorked) {
-      return AppTheme.errorColor.withAlpha(26);
+      return AppTheme.errorColor.withAlpha(32);
     }
     if (isScheduled && workDay == null) {
       return AppTheme.warning.withAlpha(13);
@@ -171,13 +193,13 @@ class _DayCell extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           color: _bgColor,
-          borderRadius: BorderRadius.circular(AppTheme.radiusS),
+          borderRadius: BorderRadius.circular(13),
           border: Border.all(color: _borderColor, width: isToday ? 1.5 : 1),
           boxShadow: isToday
               ? [
                   BoxShadow(
                     color: AppTheme.primary.withAlpha(51),
-                    blurRadius: 8,
+                    blurRadius: 12,
                     spreadRadius: 0,
                   ),
                 ]
@@ -189,7 +211,7 @@ class _DayCell extends StatelessWidget {
             Text(
               '$day',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                 color: _textColor,
               ),
@@ -201,7 +223,7 @@ class _DayCell extends StatelessWidget {
                   salaryPaymentProgress >= 0.999
                       ? Icons.check_circle
                       : Icons.circle,
-                  size: 5,
+                  size: 7,
                   color: salaryPaymentProgress >= 0.999
                       ? AppTheme.secondary
                       : AppTheme.primary,
@@ -211,8 +233,8 @@ class _DayCell extends StatelessWidget {
               Positioned(
                 bottom: 3,
                 child: Container(
-                  width: 4,
-                  height: 4,
+                  width: 5,
+                  height: 5,
                   decoration: const BoxDecoration(
                     color: AppTheme.success,
                     shape: BoxShape.circle,
@@ -223,8 +245,8 @@ class _DayCell extends StatelessWidget {
               Positioned(
                 bottom: 3,
                 child: Container(
-                  width: 4,
-                  height: 4,
+                  width: 5,
+                  height: 5,
                   decoration: const BoxDecoration(
                     color: AppTheme.errorColor,
                     shape: BoxShape.circle,

@@ -38,7 +38,12 @@ class HomeHeaderWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppTheme.glassBackground,
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.surfaceElevated.withAlpha(215),
+                  AppTheme.surfaceDark.withAlpha(210),
+                ],
+              ),
               borderRadius: BorderRadius.circular(AppTheme.radiusFull),
               border: Border.all(color: AppTheme.glassBorder),
             ),
@@ -68,7 +73,7 @@ class _PayDayLogo extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.primary, Color(0xFF00A88A)],
+          colors: [AppTheme.primary, AppTheme.accentBlue],
         ),
         boxShadow: [
           BoxShadow(
@@ -82,7 +87,7 @@ class _PayDayLogo extends StatelessWidget {
         child: Icon(
           Icons.currency_exchange_rounded,
           size: 20,
-          color: Colors.white,
+          color: AppTheme.backgroundDark,
         ),
       ),
     );

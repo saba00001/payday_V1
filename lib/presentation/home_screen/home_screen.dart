@@ -185,156 +185,281 @@ class _HomeScreenState extends State<HomeScreen>
     var workedToday = true;
 
     final response =
-        await showGeneralDialog<({bool worked, bool addObject, String? objectId})>(
+        await showGeneralDialog<
+          ({bool worked, bool addObject, String? objectId})
+        >(
           context: context,
           barrierDismissible: false,
           barrierLabel: 'დღევანდელი სამუშაო',
           pageBuilder: (dialogContext, animation, secondaryAnimation) =>
               StatefulBuilder(
-                builder: (context, setDialogState) => AlertDialog(
-              backgroundColor: AppTheme.surfaceDark,
-              surfaceTintColor: Colors.transparent,
-              elevation: 28,
-              shadowColor: AppTheme.primary.withValues(alpha: 0.28),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-                side: BorderSide(
-                  color: AppTheme.primary.withValues(alpha: 0.22),
-                ),
-              ),
-              titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-              contentPadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-              title: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppTheme.primary.withValues(alpha: 0.15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primary.withValues(alpha: 0.2),
-                          blurRadius: 20,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.work_history_rounded,
-                      color: AppTheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Text(
-                      'დღეს იმუშავე?',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                builder: (context, setDialogState) => Dialog.fullscreen(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF111B2D),
+                          Color(0xFF0A1221),
+                          Color(0xFF10142A),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RadioGroup<bool>(
-                    groupValue: workedToday,
-                    onChanged: (value) =>
-                        setDialogState(() => workedToday = value ?? false),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        RadioListTile<bool>(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          tileColor: Colors.white.withValues(alpha: 0.04),
-                          selectedTileColor: AppTheme.primary.withValues(
-                            alpha: 0.12,
-                          ),
-                          selected: workedToday,
-                          activeColor: AppTheme.primary,
-                          title: Text('კი, ვიმუშავე'),
-                          value: true,
-                        ),
-                        const SizedBox(height: 8),
-                        RadioListTile<bool>(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          tileColor: Colors.white.withValues(alpha: 0.04),
-                          selectedTileColor: AppTheme.primary.withValues(
-                            alpha: 0.12,
-                          ),
-                          selected: !workedToday,
-                          activeColor: AppTheme.primary,
-                          title: Text('არა, არ მიმუშავია'),
-                          value: false,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (workedToday && activeObjects.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedObjectId,
-                      decoration: const InputDecoration(
-                        labelText: 'რომელ ობიექტზე იმუშავე?',
-                      ),
-                      items: activeObjects
-                          .map(
-                            (object) => DropdownMenuItem(
-                              value: object.id,
-                              child: Text(object.name),
+                    child: SafeArea(
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  tooltip: 'მოგვიანებით',
+                                  onPressed: () => Navigator.pop(dialogContext),
+                                  icon: const Icon(Icons.close_rounded),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: AppTheme.glassBackground,
+                                    foregroundColor: AppTheme.textSecondary,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primary.withAlpha(23),
+                                    borderRadius: BorderRadius.circular(30),
+                                    border: Border.all(
+                                      color: AppTheme.primary.withAlpha(50),
+                                    ),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.today_rounded,
+                                        color: AppTheme.primary,
+                                        size: 16,
+                                      ),
+                                      SizedBox(width: 7),
+                                      Text(
+                                        'დღევანდელი ჩანაწერი',
+                                        style: TextStyle(
+                                          color: AppTheme.primary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          )
-                          .toList(),
-                      onChanged: (value) =>
-                          setDialogState(() => selectedObjectId = value),
+                          ),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(
+                                24,
+                                24,
+                                24,
+                                20,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Center(
+                                    child: Container(
+                                      width: 112,
+                                      height: 112,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            AppTheme.primary.withAlpha(54),
+                                            AppTheme.accentBlue.withAlpha(30),
+                                          ],
+                                        ),
+                                        border: Border.all(
+                                          color: AppTheme.primary.withAlpha(85),
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppTheme.primary.withAlpha(
+                                              30,
+                                            ),
+                                            blurRadius: 36,
+                                            spreadRadius: 3,
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.work_history_rounded,
+                                        color: AppTheme.primary,
+                                        size: 48,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 28),
+                                  const Text(
+                                    'დღეს იმუშავე?',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppTheme.textPrimary,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.6,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'მონიშნე დღევანდელი დღე, რომ ხელფასი სწორად დაითვალოს.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 14,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 28),
+                                  _ReminderWorkOption(
+                                    title: 'კი, ვიმუშავე',
+                                    subtitle:
+                                        'დღე დაემატება ჩემს სამუშაო ჩანაწერებში',
+                                    icon: Icons.check_circle_rounded,
+                                    color: AppTheme.primary,
+                                    selected: workedToday,
+                                    onTap: () => setDialogState(
+                                      () => workedToday = true,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _ReminderWorkOption(
+                                    title: 'არა, არ მიმუშავია',
+                                    subtitle: 'დღე აღირიცხება როგორც დასვენება',
+                                    icon: Icons.weekend_rounded,
+                                    color: AppTheme.accentPink,
+                                    selected: !workedToday,
+                                    onTap: () => setDialogState(
+                                      () => workedToday = false,
+                                    ),
+                                  ),
+                                  if (workedToday &&
+                                      activeObjects.isNotEmpty) ...[
+                                    const SizedBox(height: 24),
+                                    DropdownButtonFormField<String>(
+                                      initialValue: selectedObjectId,
+                                      decoration: const InputDecoration(
+                                        labelText: 'სამუშაო ობიექტი',
+                                        prefixIcon: Icon(
+                                          Icons.domain_rounded,
+                                          color: AppTheme.accentBlue,
+                                        ),
+                                      ),
+                                      items: activeObjects
+                                          .map(
+                                            (object) => DropdownMenuItem(
+                                              value: object.id,
+                                              child: Text(object.name),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (value) => setDialogState(
+                                        () => selectedObjectId = value,
+                                      ),
+                                    ),
+                                  ] else if (workedToday) ...[
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'ჯერ დაამატე სამუშაო ობიექტი.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: AppTheme.warning),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.textSecondary,
+                                      side: const BorderSide(
+                                        color: AppTheme.glassBorder,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 17,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                    ),
+                                    child: const Text('მოგვიანებით'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: FilledButton.icon(
+                                    onPressed:
+                                        workedToday && activeObjects.isEmpty
+                                        ? () => Navigator.pop(dialogContext, (
+                                            worked: false,
+                                            addObject: true,
+                                            objectId: null,
+                                          ))
+                                        : workedToday &&
+                                              selectedObjectId == null
+                                        ? null
+                                        : () => Navigator.pop(dialogContext, (
+                                            worked: workedToday,
+                                            addObject: false,
+                                            objectId: workedToday
+                                                ? selectedObjectId
+                                                : null,
+                                          )),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor:
+                                          workedToday && activeObjects.isEmpty
+                                          ? AppTheme.warning
+                                          : workedToday
+                                          ? AppTheme.primary
+                                          : AppTheme.accentPink,
+                                      foregroundColor: AppTheme.backgroundDark,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 17,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                    ),
+                                    icon: Icon(
+                                      workedToday && activeObjects.isEmpty
+                                          ? Icons.add_rounded
+                                          : Icons.done_rounded,
+                                    ),
+                                    label: Text(
+                                      workedToday && activeObjects.isEmpty
+                                          ? 'ობიექტის დამატება'
+                                          : 'შენახვა',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ] else if (workedToday) ...[
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text('ჯერ დაამატე სამუშაო ობიექტი.'),
-                    ),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('მოგვიანებით'),
-                ),
-                if (workedToday && activeObjects.isEmpty)
-                  FilledButton(
-                    onPressed: () => Navigator.pop(dialogContext, (
-                      worked: false,
-                      addObject: true,
-                      objectId: null,
-                    )),
-                    child: const Text('ობიექტის დამატება'),
-                  )
-                else
-                  FilledButton(
-                    onPressed: workedToday && selectedObjectId == null
-                        ? null
-                        : () => Navigator.pop(dialogContext, (
-                            worked: workedToday,
-                            addObject: false,
-                            objectId: workedToday ? selectedObjectId : null,
-                          )),
-                    child: const Text('დადასტურება'),
                   ),
-              ],
                 ),
               ),
           transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -1044,6 +1169,101 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
   }
+}
+
+class _ReminderWorkOption extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ReminderWorkOption({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+    duration: const Duration(milliseconds: 220),
+    curve: Curves.easeOutCubic,
+    decoration: BoxDecoration(
+      color: selected ? color.withAlpha(28) : AppTheme.glassBackgroundDeep,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(
+        color: selected ? color.withAlpha(150) : AppTheme.glassBorder,
+        width: selected ? 1.5 : 1,
+      ),
+      boxShadow: selected
+          ? [BoxShadow(color: color.withAlpha(18), blurRadius: 24)]
+          : null,
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: color.withAlpha(selected ? 42 : 24),
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                child: Icon(icon, color: color, size: 26),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: Icon(
+                  selected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  key: ValueKey(selected),
+                  color: selected ? color : AppTheme.textMuted,
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 // ── Internal dialogs ──────────────────────────────────────────────────────────

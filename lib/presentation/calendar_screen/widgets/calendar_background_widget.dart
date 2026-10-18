@@ -15,7 +15,7 @@ class CalendarBackgroundWidget extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF080C14), Color(0xFF060A12)],
+                colors: [Color(0xFF0D1422), Color(0xFF080D18)],
               ),
             ),
           ),
@@ -29,7 +29,24 @@ class CalendarBackgroundWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppTheme.secondary.withAlpha(20),
+                    AppTheme.secondary.withAlpha(30),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -size.height * 0.08,
+            left: -size.width * 0.2,
+            child: Container(
+              width: size.width * 0.58,
+              height: size.width * 0.58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppTheme.primary.withAlpha(18),
                     Colors.transparent,
                   ],
                 ),

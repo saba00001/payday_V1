@@ -38,9 +38,9 @@ class _PaydayStartupMarkState extends State<PaydayStartupMark>
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF173D3B), Color(0xFF18213A)],
+          colors: [Color(0xFF183B3A), Color(0xFF22264A)],
         ),
-        border: Border.all(color: AppTheme.primary.withAlpha(110)),
+        border: Border.all(color: AppTheme.primary.withAlpha(125)),
         boxShadow: [
           BoxShadow(
             color: AppTheme.primary.withAlpha(45),

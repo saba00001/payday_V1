@@ -7,12 +7,14 @@ class _TabSpec {
   final String label;
   final IconData icon;
   final IconData activeIcon;
+  final Color color;
   final int? branchIndex;
 
   const _TabSpec({
     required this.label,
     required this.icon,
     required this.activeIcon,
+    required this.color,
     this.branchIndex,
   });
 }
@@ -36,24 +38,28 @@ class _AppNavigationState extends State<AppNavigation>
       label: 'მთავარი',
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
+      color: AppTheme.primary,
       branchIndex: 0,
     ),
     _TabSpec(
       label: 'კალენდარი',
       icon: Icons.calendar_today_outlined,
       activeIcon: Icons.calendar_today_rounded,
+      color: AppTheme.accentBlue,
       branchIndex: 1,
     ),
     _TabSpec(
       label: 'ისტორია',
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long_rounded,
+      color: AppTheme.accentPink,
       branchIndex: 2,
     ),
     _TabSpec(
       label: 'პარამეტრები',
       icon: Icons.settings_outlined,
       activeIcon: Icons.settings_rounded,
+      color: AppTheme.secondary,
       branchIndex: 3,
     ),
   ];
@@ -101,25 +107,33 @@ class _AppNavigationState extends State<AppNavigation>
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+          borderRadius: BorderRadius.circular(28),
           child: BackdropFilter(
             filter: ImageFilter.blur(
               sigmaX: AppTheme.blurMedium,
               sigmaY: AppTheme.blurMedium,
             ),
             child: Container(
-              height: 68,
+              height: 72,
               decoration: BoxDecoration(
-                color: AppTheme.surfaceDark.withAlpha(204),
-                borderRadius: BorderRadius.circular(AppTheme.radiusFull),
-                border: Border.all(color: AppTheme.glassBorder, width: 1),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.surfaceElevated.withAlpha(242),
+                    AppTheme.surfaceDark.withAlpha(238),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: AppTheme.glassBorder, width: 1.2),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withAlpha(77),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+                    color: AppTheme.secondary.withAlpha(18),
+                    blurRadius: 26,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
@@ -170,10 +184,9 @@ class _NavTabItem extends StatelessWidget {
             vertical: 10,
           ),
           decoration: BoxDecoration(
-            color: isActive
-                ? AppTheme.primary.withAlpha(26)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppTheme.radiusFull),
+            color: isActive ? tab.color.withAlpha(30) : Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+            border: isActive ? Border.all(color: tab.color.withAlpha(55)) : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -183,8 +196,8 @@ class _NavTabItem extends StatelessWidget {
                 child: Icon(
                   isActive ? tab.activeIcon : tab.icon,
                   key: ValueKey(isActive),
-                  color: isActive ? AppTheme.primary : AppTheme.textMuted,
-                  size: 22,
+                  color: isActive ? tab.color : AppTheme.textMuted,
+                  size: isActive ? 23 : 21,
                 ),
               ),
               AnimatedSize(
@@ -195,10 +208,10 @@ class _NavTabItem extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 6),
                         child: Text(
                           tab.label,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.primary,
+                            color: tab.color,
                             letterSpacing: 0.2,
                           ),
                         ),

@@ -10,7 +10,15 @@ class HistoryBackgroundWidget extends StatelessWidget {
     return SizedBox.expand(
       child: Stack(
         children: [
-          Container(color: AppTheme.backgroundDark),
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [Color(0xFF11162A), AppTheme.backgroundDark],
+              ),
+            ),
+          ),
           Positioned(
             bottom: -size.height * 0.05,
             left: -size.width * 0.1,
@@ -21,7 +29,7 @@ class HistoryBackgroundWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppTheme.secondary.withAlpha(15),
+                    AppTheme.accentPink.withAlpha(24),
                     Colors.transparent,
                   ],
                 ),

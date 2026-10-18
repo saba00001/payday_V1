@@ -678,9 +678,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF050A18),
-                    Color(0xFF0A1628),
-                    Color(0xFF050A18),
+                    Color(0xFF10182A),
+                    Color(0xFF0A1220),
+                    Color(0xFF17142B),
                   ],
                 ),
               ),
@@ -724,27 +724,41 @@ class _SettingsScreenState extends State<SettingsScreen>
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: AppTheme.primary.withAlpha(26),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.primary.withAlpha(51)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppTheme.secondary.withAlpha(55),
+                  AppTheme.accentBlue.withAlpha(28),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: AppTheme.secondary.withAlpha(80)),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.secondary.withAlpha(20),
+                  blurRadius: 18,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
             child: const Icon(
               Icons.settings_rounded,
-              color: AppTheme.primary,
-              size: 20,
+              color: AppTheme.secondary,
+              size: 22,
             ),
           ),
           const SizedBox(width: 14),
           const Text(
             'პარამეტრები',
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: -0.3,
+              fontSize: 23,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+              letterSpacing: -0.5,
             ),
           ),
         ],
@@ -1167,9 +1181,23 @@ class _Section extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.glassBackground,
-                borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.surfaceElevated.withAlpha(175),
+                    AppTheme.surfaceDark.withAlpha(175),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppTheme.glassBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.accentBlue.withAlpha(10),
+                    blurRadius: 22,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: Column(children: children),
             ),

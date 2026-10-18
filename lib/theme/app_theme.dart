@@ -7,34 +7,36 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // ── Brand Colors ──────────────────────────────────────────────────────
-  static const Color primary = Color(0xFF00D4AA);
-  static const Color primaryContainer = Color(0x2600D4AA);
-  static const Color secondary = Color(0xFF7B5CF5);
-  static const Color secondaryContainer = Color(0x267B5CF5);
+  static const Color primary = Color(0xFF65E6C1);
+  static const Color primaryContainer = Color(0x2665E6C1);
+  static const Color secondary = Color(0xFFA78BFA);
+  static const Color secondaryContainer = Color(0x26A78BFA);
+  static const Color accentBlue = Color(0xFF73B8FF);
+  static const Color accentPink = Color(0xFFFF8AAE);
 
   // ── Semantic Colors ───────────────────────────────────────────────────
-  static const Color success = Color(0xFF00D4AA);
-  static const Color successContainer = Color(0x1A00D4AA);
-  static const Color warning = Color(0xFFF6AD55);
-  static const Color warningContainer = Color(0x1AF6AD55);
-  static const Color errorColor = Color(0xFFFC8181);
-  static const Color errorContainer = Color(0x1AFC8181);
+  static const Color success = Color(0xFF65E6C1);
+  static const Color successContainer = Color(0x1A65E6C1);
+  static const Color warning = Color(0xFFFFC66D);
+  static const Color warningContainer = Color(0x1AFFC66D);
+  static const Color errorColor = Color(0xFFFF8298);
+  static const Color errorContainer = Color(0x1AFF8298);
 
   // ── Dark Theme Surfaces ───────────────────────────────────────────────
-  static const Color backgroundDark = Color(0xFF080C14);
-  static const Color surfaceDark = Color(0xFF0F1623);
-  static const Color surfaceVariantDark = Color(0xFF1A2235);
-  static const Color surfaceElevated = Color(0xFF1E2A3D);
+  static const Color backgroundDark = Color(0xFF080D18);
+  static const Color surfaceDark = Color(0xFF111A2A);
+  static const Color surfaceVariantDark = Color(0xFF1A263B);
+  static const Color surfaceElevated = Color(0xFF223149);
 
   // ── Glass System ──────────────────────────────────────────────────────
-  static const Color glassBackground = Color(0x1AFFFFFF);
-  static const Color glassBorder = Color(0x26FFFFFF);
-  static const Color glassBackgroundDeep = Color(0x0DFFFFFF);
+  static const Color glassBackground = Color(0x20A9C7EA);
+  static const Color glassBorder = Color(0x30C1D9F5);
+  static const Color glassBackgroundDeep = Color(0x12A9C7EA);
 
   // ── Text Colors ───────────────────────────────────────────────────────
   static const Color textPrimary = Color(0xFFE8EDF5);
-  static const Color textSecondary = Color(0xFF8A9BB5);
-  static const Color textMuted = Color(0xFF4A5568);
+  static const Color textSecondary = Color(0xFF9AACC5);
+  static const Color textMuted = Color(0xFF64738C);
 
   // ── Light Theme Surfaces (required getter) ────────────────────────────
   static const Color backgroundLight = Color(0xFFF0F4F8);
@@ -175,7 +177,7 @@ class AppTheme {
     cardTheme: CardThemeData(
       color: surfaceDark,
       elevation: 4,
-      shadowColor: const Color(0x4400D4AA),
+      shadowColor: const Color(0x4465E6C1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusL),
         side: const BorderSide(color: glassBorder, width: 1),
@@ -185,7 +187,7 @@ class AppTheme {
       backgroundColor: surfaceDark,
       surfaceTintColor: Colors.transparent,
       elevation: 24,
-      shadowColor: const Color(0x5500D4AA),
+      shadowColor: const Color(0x5565E6C1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusXL),
         side: const BorderSide(color: glassBorder),
@@ -201,7 +203,7 @@ class AppTheme {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         elevation: 2,
-        shadowColor: const Color(0x4400D4AA),
+        shadowColor: const Color(0x4465E6C1),
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusM),

@@ -16,9 +16,9 @@ class HomeBackgroundWidget extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF080C14),
-                  Color(0xFF0A0F1E),
-                  Color(0xFF060A12),
+                  Color(0xFF080D18),
+                  Color(0xFF10182A),
+                  Color(0xFF090E19),
                 ],
               ),
             ),
@@ -34,7 +34,7 @@ class HomeBackgroundWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF00D4AA).withAlpha(26),
+                    const Color(0xFF65E6C1).withAlpha(34),
                     Colors.transparent,
                   ],
                 ),
@@ -52,7 +52,7 @@ class HomeBackgroundWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF7B5CF5).withAlpha(20),
+                    const Color(0xFFA78BFA).withAlpha(27),
                     Colors.transparent,
                   ],
                 ),
@@ -70,7 +70,7 @@ class HomeBackgroundWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF00A8FF).withAlpha(13),
+                    const Color(0xFF73B8FF).withAlpha(18),
                     Colors.transparent,
                   ],
                 ),

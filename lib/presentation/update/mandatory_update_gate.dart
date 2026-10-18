@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../services/update/github_release.dart';
 import '../../services/update/update_installer.dart';
 import '../../services/update/update_service.dart';
+import '../../theme/app_theme.dart';
 import '../../widgets/payday_startup_mark.dart';
 
 enum _GateState {
@@ -276,8 +277,8 @@ class _UpdateProgressMark extends StatelessWidget {
           onPressed: onPressed,
           icon: Icon(icon),
           style: IconButton.styleFrom(
-            backgroundColor: const Color(0xFF10B981),
-            foregroundColor: const Color(0xFF001A14),
+            backgroundColor: AppTheme.primary,
+            foregroundColor: AppTheme.backgroundDark,
             minimumSize: const Size(56, 56),
           ),
         ),
@@ -293,7 +294,7 @@ class _UpdateStatusScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xFF101A27),
+    backgroundColor: AppTheme.backgroundDark,
     body: SafeArea(
       child: Center(
         child: SingleChildScrollView(
@@ -303,7 +304,7 @@ class _UpdateStatusScreen extends StatelessWidget {
             child: DefaultTextStyle(
               style: const TextStyle(color: Colors.white70),
               child: IconTheme(
-                data: const IconThemeData(color: Color(0xFF10B981)),
+                data: const IconThemeData(color: AppTheme.primary),
                 child: child,
               ),
             ),
