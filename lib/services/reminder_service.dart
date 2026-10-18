@@ -151,25 +151,6 @@ class ReminderService {
     }
   }
 
-  /// Returns true if the app can use Full Screen Intent (Android 14+ / API 34+).
-  /// Always returns true on older Android versions.
-  /// Returns false (not true) on error — caller should show permission UI.
-  static Future<bool> canUseFullScreenIntent() async {
-    if (!_isAndroid) return true;
-    try {
-      final result = await _channel.invokeMethod<bool>(
-        'canUseFullScreenIntent',
-      );
-      return result ?? false;
-    } on PlatformException {
-      return false;
-    } on MissingPluginException {
-      return false;
-    } catch (_) {
-      return false;
-    }
-  }
-
   static Future<bool> canPostNotifications() async {
     if (!_isAndroid) return true;
     try {
@@ -207,21 +188,6 @@ class ReminderService {
       // No-op on non-Android.
     } catch (e) {
       debugPrint('ReminderService.openExactAlarmSettings error: $e');
-    }
-  }
-
-  static Future<void> openFullScreenIntentSettings() async {
-    if (!_isAndroid) return;
-    try {
-      await _channel.invokeMethod('openFullScreenIntentSettings');
-    } on PlatformException catch (e) {
-      debugPrint(
-        'ReminderService.openFullScreenIntentSettings PlatformException: $e',
-      );
-    } on MissingPluginException {
-      // No-op on non-Android.
-    } catch (e) {
-      debugPrint('ReminderService.openFullScreenIntentSettings error: $e');
     }
   }
 

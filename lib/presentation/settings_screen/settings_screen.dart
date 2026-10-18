@@ -38,7 +38,6 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   // Permission state
   bool _canScheduleExact = true;
-  bool _canUseFullScreenIntent = true;
   bool _canPostNotifications = true;
 
   // Wage
@@ -65,8 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     DataService.dataRevision.addListener(_onDataRestored);
-    _isAndroid =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    _isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     _loadInstalledVersion();
     _init();
   }
@@ -189,8 +187,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         onProgress: (received, total) {
           if (mounted && total > 0) {
             setState(
-              () => _updateStatus =
-                  'იტვირთება ${(received * 100 ~/ total)}%',
+              () => _updateStatus = 'იტვირთება ${(received * 100 ~/ total)}%',
             );
           }
         },
@@ -404,12 +401,10 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _checkPermissions() async {
     final canExact = await ReminderService.canScheduleExactAlarms();
-    final canFsi = await ReminderService.canUseFullScreenIntent();
     final canNotify = await ReminderService.canPostNotifications();
     if (mounted) {
       setState(() {
         _canScheduleExact = canExact;
-        _canUseFullScreenIntent = canFsi;
         _canPostNotifications = canNotify;
       });
     }
@@ -419,7 +414,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         minute: _reminderMinute,
       );
       if (!scheduled && kDebugMode) {
-        debugPrint('PayDay reminder could not be rescheduled after permission check.');
+        debugPrint(
+          'PayDay reminder could not be rescheduled after permission check.',
+        );
       }
     }
   }
@@ -857,21 +854,10 @@ class _SettingsScreenState extends State<SettingsScreen>
       children: [
         _PermissionTile(
           label: 'ზუსტი მაღვიძარა',
-          description: 'Android 12+ — SCHEDULE_EXACT_ALARM',
+          description: 'Android 12+ — ზუსტი დროისთვის რეკომენდებულია',
           isGranted: _canScheduleExact,
           onOpenSettings: () async {
             await ReminderService.openExactAlarmSettings();
-            await Future.delayed(const Duration(milliseconds: 500));
-            _checkPermissions();
-          },
-        ),
-        const Divider(color: AppTheme.glassBorder, height: 1),
-        _PermissionTile(
-          label: 'სრული ეკრანი',
-          description: 'Android 14+ — USE_FULL_SCREEN_INTENT',
-          isGranted: _canUseFullScreenIntent,
-          onOpenSettings: () async {
-            await ReminderService.openFullScreenIntentSettings();
             await Future.delayed(const Duration(milliseconds: 500));
             _checkPermissions();
           },

@@ -14,12 +14,6 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
 
-    <!-- Full-screen intent permission — required on Android 14+ (API 34+).
-         AlarmReceiver checks canUseFullScreenIntent() before using FSI.
-         Absence of this permission does NOT cause a crash — notification fallback
-         is used instead. -->
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
-
     <!-- Wake lock — allows AlarmManager to wake the CPU when alarm fires. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 

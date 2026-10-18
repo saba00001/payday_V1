@@ -74,21 +74,6 @@ class MainActivity : FlutterFragmentActivity() {
                             result.success(canSchedule)
                         }
 
-                        "canUseFullScreenIntent" -> {
-                            val canUse = try {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                                    val nm = getSystemService(NOTIFICATION_SERVICE) as? android.app.NotificationManager
-                                    nm?.canUseFullScreenIntent() ?: false
-                                } else {
-                                    // Below Android 14: full-screen intent always available.
-                                    true
-                                }
-                            } catch (_: Exception) {
-                                false
-                            }
-                            result.success(canUse)
-                        }
-
                         "openExactAlarmSettings" -> {
                             val opened = try {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -101,36 +86,6 @@ class MainActivity : FlutterFragmentActivity() {
                                     true
                                 } else {
                                     // Not needed below Android 12.
-                                    false
-                                }
-                            } catch (_: Exception) {
-                                false
-                            }
-                            result.success(opened)
-                        }
-
-                        "openFullScreenIntentSettings" -> {
-                            val opened = try {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                                    val intent = Intent(
-                                        android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT
-                                    ).apply {
-                                        data = android.net.Uri.parse("package:$packageName")
-                                    }
-                                    startActivity(intent)
-                                    true
-                                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    val intent = Intent(
-                                        android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS
-                                    ).apply {
-                                        putExtra(
-                                            android.provider.Settings.EXTRA_APP_PACKAGE,
-                                            packageName
-                                        )
-                                    }
-                                    startActivity(intent)
-                                    true
-                                } else {
                                     false
                                 }
                             } catch (_: Exception) {
