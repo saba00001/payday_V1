@@ -15,7 +15,7 @@ class CalendarBackgroundWidget extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF0D1422), Color(0xFF080D18)],
+                colors: [AppTheme.surfaceDark, AppTheme.backgroundDark],
               ),
             ),
           ),

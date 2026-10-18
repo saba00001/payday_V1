@@ -1,6 +1,8 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../theme/app_theme.dart';
 
 class _TabSpec {
@@ -8,14 +10,14 @@ class _TabSpec {
   final IconData icon;
   final IconData activeIcon;
   final Color color;
-  final int? branchIndex;
+  final int branchIndex;
 
   const _TabSpec({
     required this.label,
     required this.icon,
     required this.activeIcon,
     required this.color,
-    this.branchIndex,
+    required this.branchIndex,
   });
 }
 
@@ -28,10 +30,8 @@ class AppNavigation extends StatefulWidget {
   State<AppNavigation> createState() => _AppNavigationState();
 }
 
-class _AppNavigationState extends State<AppNavigation>
-    with SingleTickerProviderStateMixin {
+class _AppNavigationState extends State<AppNavigation> {
   int _selectedVisualIndex = 0;
-  late AnimationController _animController;
 
   final List<_TabSpec> _tabs = const [
     _TabSpec(
@@ -67,38 +67,23 @@ class _AppNavigationState extends State<AppNavigation>
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
     _selectedVisualIndex = widget.navigationShell.currentIndex;
   }
 
   @override
   void didUpdateWidget(AppNavigation oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Sync visual index when shell changes externally
-    final shellIdx = widget.navigationShell.currentIndex;
-    if (_selectedVisualIndex != shellIdx) {
-      setState(() => _selectedVisualIndex = shellIdx);
+    final shellIndex = widget.navigationShell.currentIndex;
+    if (_selectedVisualIndex != shellIndex) {
+      setState(() => _selectedVisualIndex = shellIndex);
     }
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
   }
 
   void _onTabTap(int visualIndex) {
     final tab = _tabs[visualIndex];
-    if (tab.branchIndex == null) {
-      // Stub tab — silent ignore
-      return;
-    }
     setState(() => _selectedVisualIndex = visualIndex);
     widget.navigationShell.goBranch(
-      tab.branchIndex!,
+      tab.branchIndex,
       initialLocation: tab.branchIndex == widget.navigationShell.currentIndex,
     );
   }
@@ -107,46 +92,47 @@ class _AppNavigationState extends State<AppNavigation>
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(26),
           child: BackdropFilter(
             filter: ImageFilter.blur(
               sigmaX: AppTheme.blurMedium,
               sigmaY: AppTheme.blurMedium,
             ),
             child: Container(
-              height: 72,
+              height: 76,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    AppTheme.surfaceElevated.withAlpha(242),
-                    AppTheme.surfaceDark.withAlpha(238),
+                    AppTheme.surfaceElevated.withAlpha(246),
+                    AppTheme.surfaceDark.withAlpha(245),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: AppTheme.glassBorder, width: 1.2),
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(color: AppTheme.glassBorder, width: 1.1),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.secondary.withAlpha(18),
+                    color: AppTheme.accentBlue.withAlpha(16),
                     blurRadius: 26,
                     spreadRadius: 1,
-                    offset: const Offset(0, 10),
+                    offset: const Offset(0, 9),
                   ),
                 ],
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(_tabs.length, (i) {
-                  return _NavTabItem(
-                    tab: _tabs[i],
-                    isActive: i == _selectedVisualIndex,
-                    isStub: _tabs[i].branchIndex == null,
-                    onTap: () => _onTabTap(i),
-                  );
-                }),
+                children: List.generate(
+                  _tabs.length,
+                  (index) => Expanded(
+                    child: _NavTabItem(
+                      tab: _tabs[index],
+                      isActive: index == _selectedVisualIndex,
+                      onTap: () => _onTabTap(index),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -159,66 +145,85 @@ class _AppNavigationState extends State<AppNavigation>
 class _NavTabItem extends StatelessWidget {
   final _TabSpec tab;
   final bool isActive;
-  final bool isStub;
   final VoidCallback onTap;
 
   const _NavTabItem({
     required this.tab,
     required this.isActive,
-    required this.isStub,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isStub ? 0.4 : 1.0,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.symmetric(
-            horizontal: isActive ? 16 : 12,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: isActive ? tab.color.withAlpha(30) : Colors.transparent,
-            borderRadius: BorderRadius.circular(22),
-            border: isActive ? Border.all(color: tab.color.withAlpha(55)) : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  isActive ? tab.activeIcon : tab.icon,
-                  key: ValueKey(isActive),
-                  color: isActive ? tab.color : AppTheme.textMuted,
-                  size: isActive ? 23 : 21,
+    return Semantics(
+      button: true,
+      selected: isActive,
+      label: tab.label,
+      child: Tooltip(
+        message: tab.label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 7),
+            decoration: BoxDecoration(
+              gradient: isActive
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        tab.color.withAlpha(34),
+                        tab.color.withAlpha(12),
+                      ],
+                    )
+                  : null,
+              borderRadius: BorderRadius.circular(19),
+              border: Border.all(
+                color: isActive ? tab.color.withAlpha(62) : Colors.transparent,
+              ),
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: tab.color.withAlpha(18),
+                        blurRadius: 14,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: animation,
+                    child: FadeTransition(opacity: animation, child: child),
+                  ),
+                  child: Icon(
+                    isActive ? tab.activeIcon : tab.icon,
+                    key: ValueKey(isActive),
+                    color: isActive ? tab.color : AppTheme.textMuted,
+                    size: 21,
+                  ),
                 ),
-              ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                child: isActive
-                    ? Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Text(
-                          tab.label,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: tab.color,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(
+                  tab.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    color: isActive ? tab.color : AppTheme.textMuted,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

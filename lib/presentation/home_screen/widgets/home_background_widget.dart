@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_theme.dart';
+
 class HomeBackgroundWidget extends StatelessWidget {
   const HomeBackgroundWidget({super.key});
 
@@ -16,9 +18,9 @@ class HomeBackgroundWidget extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF080D18),
-                  Color(0xFF10182A),
-                  Color(0xFF090E19),
+                  AppTheme.backgroundDark,
+                  AppTheme.surfaceDark,
+                  AppTheme.backgroundDark,
                 ],
               ),
             ),
@@ -34,7 +36,7 @@ class HomeBackgroundWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF65E6C1).withAlpha(34),
+                    AppTheme.primary.withAlpha(34),
                     Colors.transparent,
                   ],
                 ),
@@ -52,7 +54,7 @@ class HomeBackgroundWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFA78BFA).withAlpha(27),
+                    AppTheme.secondary.withAlpha(27),
                     Colors.transparent,
                   ],
                 ),
@@ -70,7 +72,7 @@ class HomeBackgroundWidget extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF73B8FF).withAlpha(18),
+                    AppTheme.accentBlue.withAlpha(18),
                     Colors.transparent,
                   ],
                 ),

@@ -15,7 +15,7 @@ class HistoryBackgroundWidget extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
-                colors: [Color(0xFF11162A), AppTheme.backgroundDark],
+                colors: [AppTheme.surfaceDark, AppTheme.backgroundDark],
               ),
             ),
           ),

@@ -200,9 +200,9 @@ class _HomeScreenState extends State<HomeScreen>
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Color(0xFF111B2D),
-                          Color(0xFF0A1221),
-                          Color(0xFF10142A),
+                          AppTheme.surfaceDark,
+                          AppTheme.backgroundDark,
+                          AppTheme.surfaceVariantDark,
                         ],
                       ),
                     ),

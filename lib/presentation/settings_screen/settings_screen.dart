@@ -678,9 +678,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF10182A),
-                    Color(0xFF0A1220),
-                    Color(0xFF17142B),
+                    AppTheme.surfaceDark,
+                    AppTheme.backgroundDark,
+                    AppTheme.surfaceVariantDark,
                   ],
                 ),
               ),
@@ -752,13 +752,28 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           ),
           const SizedBox(width: 14),
-          const Text(
-            'პარამეტრები',
-            style: TextStyle(
-              fontSize: 23,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.textPrimary,
-              letterSpacing: -0.5,
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'პარამეტრები',
+                  style: TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'შეხსენებები, სამუშაო და მონაცემები',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

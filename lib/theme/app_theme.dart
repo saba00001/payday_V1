@@ -7,26 +7,26 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // ── Brand Colors ──────────────────────────────────────────────────────
-  static const Color primary = Color(0xFF65E6C1);
-  static const Color primaryContainer = Color(0x2665E6C1);
-  static const Color secondary = Color(0xFFA78BFA);
-  static const Color secondaryContainer = Color(0x26A78BFA);
-  static const Color accentBlue = Color(0xFF73B8FF);
-  static const Color accentPink = Color(0xFFFF8AAE);
+  static const Color primary = Color(0xFF70EBCB);
+  static const Color primaryContainer = Color(0x2670EBCB);
+  static const Color secondary = Color(0xFFB39AFF);
+  static const Color secondaryContainer = Color(0x26B39AFF);
+  static const Color accentBlue = Color(0xFF82C2FF);
+  static const Color accentPink = Color(0xFFFF91AC);
 
   // ── Semantic Colors ───────────────────────────────────────────────────
-  static const Color success = Color(0xFF65E6C1);
-  static const Color successContainer = Color(0x1A65E6C1);
-  static const Color warning = Color(0xFFFFC66D);
-  static const Color warningContainer = Color(0x1AFFC66D);
+  static const Color success = Color(0xFF70EBCB);
+  static const Color successContainer = Color(0x1A70EBCB);
+  static const Color warning = Color(0xFFFFCB78);
+  static const Color warningContainer = Color(0x1AFFCB78);
   static const Color errorColor = Color(0xFFFF8298);
   static const Color errorContainer = Color(0x1AFF8298);
 
   // ── Dark Theme Surfaces ───────────────────────────────────────────────
-  static const Color backgroundDark = Color(0xFF080D18);
-  static const Color surfaceDark = Color(0xFF111A2A);
-  static const Color surfaceVariantDark = Color(0xFF1A263B);
-  static const Color surfaceElevated = Color(0xFF223149);
+  static const Color backgroundDark = Color(0xFF080C16);
+  static const Color surfaceDark = Color(0xFF111827);
+  static const Color surfaceVariantDark = Color(0xFF1B2639);
+  static const Color surfaceElevated = Color(0xFF25334A);
 
   // ── Glass System ──────────────────────────────────────────────────────
   static const Color glassBackground = Color(0x20A9C7EA);
