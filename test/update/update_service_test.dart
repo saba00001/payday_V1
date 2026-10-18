@@ -387,8 +387,8 @@ void main() {
           ),
         );
 
-        expect(find.text('PayDay'), findsOneWidget);
-        expect(find.text('განახლების შემოწმება…'), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsOneWidget);
+        expect(find.byType(Text), findsNothing);
         expect(find.text('normal app'), findsNothing);
 
         await tester.pump(const Duration(milliseconds: 850));
@@ -432,10 +432,7 @@ void main() {
       expect(find.text('normal app'), findsOneWidget);
 
       service.pendingCheck!.complete(
-        UpdateCheckResult(
-          installedVersion: '1.1.6',
-          release: _release(),
-        ),
+        UpdateCheckResult(installedVersion: '1.1.6', release: _release()),
       );
       await tester.pump();
       await tester.pump();
@@ -471,11 +468,12 @@ void main() {
     testWidgets('online newer release still blocks the normal app', (
       tester,
     ) async {
+      final service = _FakeMandatoryService(installedVersion: '1.0.0');
       await tester.pumpWidget(
         MaterialApp(
           home: MandatoryUpdateGate(
             enabled: true,
-            updateService: _FakeMandatoryService(installedVersion: '1.0.0'),
+            updateService: service,
             child: const Text('normal app'),
           ),
         ),
@@ -484,7 +482,20 @@ void main() {
       await tester.pump();
 
       expect(find.text('normal app'), findsNothing);
-      expect(find.text('ჩამოტვირთვა და განახლება'), findsOneWidget);
+      expect(find.byType(Text), findsNothing);
+      expect(
+        find.byTooltip('განახლების ჩამოტვირთვა და ინსტალაცია'),
+        findsOneWidget,
+      );
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      await tester.tap(find.byTooltip('განახლების ჩამოტვირთვა და ინსტალაცია'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(service.downloadCount, 1);
+      expect(service.installCount, 1);
+      expect(find.byTooltip('განახლების ხელახლა შემოწმება'), findsOneWidget);
+      expect(find.byType(Text), findsNothing);
     });
 
     testWidgets('invalid release response does not block app access', (
@@ -639,6 +650,8 @@ class _FakeMandatoryService implements MandatoryUpdateService {
   var checkFailuresRemaining = 0;
   var failureIsOffline = true;
   var checkCount = 0;
+  var downloadCount = 0;
+  var installCount = 0;
   Completer<UpdateCheckResult>? pendingCheck;
 
   _FakeMandatoryService({this.installedVersion = '1.0.0'});
@@ -664,11 +677,17 @@ class _FakeMandatoryService implements MandatoryUpdateService {
   Future<String> downloadAndVerify(
     GitHubRelease release, {
     required void Function(int received, int total) onProgress,
-  }) async => '/verified.apk';
+  }) async {
+    downloadCount++;
+    onProgress(1, 1);
+    return '/verified.apk';
+  }
 
   @override
-  Future<InstallerResult> installVerifiedApk(String path) async =>
-      InstallerResult.launched;
+  Future<InstallerResult> installVerifiedApk(String path) async {
+    installCount++;
+    return InstallerResult.launched;
+  }
 
   @override
   Future<void> openInstallPermissionSettings() async {}

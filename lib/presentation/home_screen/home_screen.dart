@@ -185,11 +185,13 @@ class _HomeScreenState extends State<HomeScreen>
     var workedToday = true;
 
     final response =
-        await showDialog<({bool worked, bool addObject, String? objectId})>(
+        await showGeneralDialog<({bool worked, bool addObject, String? objectId})>(
           context: context,
           barrierDismissible: false,
-          builder: (dialogContext) => StatefulBuilder(
-            builder: (context, setDialogState) => AlertDialog(
+          barrierLabel: 'დღევანდელი სამუშაო',
+          pageBuilder: (dialogContext, animation, secondaryAnimation) =>
+              StatefulBuilder(
+                builder: (context, setDialogState) => AlertDialog(
               backgroundColor: AppTheme.surfaceDark,
               surfaceTintColor: Colors.transparent,
               elevation: 28,
@@ -333,8 +335,24 @@ class _HomeScreenState extends State<HomeScreen>
                     child: const Text('დადასტურება'),
                   ),
               ],
-            ),
-          ),
+                ),
+              ),
+          transitionBuilder: (context, animation, secondaryAnimation, child) {
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            );
+            return FadeTransition(
+              opacity: curvedAnimation,
+              child: ScaleTransition(
+                scale: Tween<double>(
+                  begin: 0.94,
+                  end: 1,
+                ).animate(curvedAnimation),
+                child: child,
+              ),
+            );
+          },
         );
     if (!mounted || response == null) return;
 

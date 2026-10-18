@@ -59,7 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   String? _installedVersion;
   bool _versionLoadFailed = false;
   bool _updateBusy = false;
-  String? _updateStatus;
+  double? _updateProgress;
 
   @override
   void initState() {
@@ -143,13 +143,12 @@ class _SettingsScreenState extends State<SettingsScreen>
     if (_updateBusy) return;
     setState(() {
       _updateBusy = true;
-      _updateStatus = null;
+      _updateProgress = null;
     });
     try {
       final result = await _updateService.checkForUpdate();
       if (!mounted) return;
       if (!result.updateRequired) {
-        setState(() => _updateStatus = 'უახლესი ვერსია გაქვს');
         _showSnack('PayDay განახლებულია');
         return;
       }
@@ -158,38 +157,39 @@ class _SettingsScreenState extends State<SettingsScreen>
         context: context,
         builder: (dialogContext) => AlertDialog(
           backgroundColor: AppTheme.surfaceDark,
-          title: const Text(
-            'განახლება ხელმისაწვდომია',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: SingleChildScrollView(
-            child: Text(
-              'დაინსტალირებულია ${result.installedVersion}; '
-              'ხელმისაწვდომია ${release.tagName}.'
-              '${release.notes.isEmpty ? '' : '\n\n${release.notes}'}',
-              style: const TextStyle(color: AppTheme.textSecondary),
-            ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.system_update_alt_rounded,
+                color: AppTheme.primary,
+                size: 48,
+              ),
+              SizedBox(height: 24),
+              LinearProgressIndicator(),
+            ],
           ),
           actions: [
-            TextButton(
+            IconButton(
+              tooltip: 'დახურვა',
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('მოგვიანებით'),
+              icon: const Icon(Icons.close_rounded),
             ),
-            FilledButton(
+            IconButton.filled(
+              tooltip: 'განახლების დაწყება',
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('განახლება'),
+              icon: const Icon(Icons.download_rounded),
             ),
           ],
         ),
       );
       if (shouldInstall != true || !mounted) return;
-      setState(() => _updateStatus = 'განახლება იტვირთება…');
       final apkPath = await _updateService.downloadAndVerify(
         release,
         onProgress: (received, total) {
-          if (mounted && total > 0) {
+          if (mounted) {
             setState(
-              () => _updateStatus = 'იტვირთება ${(received * 100 ~/ total)}%',
+              () => _updateProgress = total > 0 ? received / total : null,
             );
           }
         },
@@ -197,13 +197,11 @@ class _SettingsScreenState extends State<SettingsScreen>
       final installResult = await _updateService.installVerifiedApk(apkPath);
       if (!mounted) return;
       if (installResult == InstallerResult.permissionRequired) {
-        setState(() => _updateStatus = 'ინსტალაციის ნებართვა საჭიროა');
         await _updateService.openInstallPermissionSettings();
         _showSnack(
           'ჩართე PayDay-იდან აპების ინსტალაციის ნებართვა და დაბრუნდი აპში.',
         );
       } else {
-        setState(() => _updateStatus = 'Android-ის ინსტალერი გაიხსნა');
         _showSnack('დაასრულე განახლება Android-ის ინსტალერში.');
       }
     } catch (error) {
@@ -211,10 +209,14 @@ class _SettingsScreenState extends State<SettingsScreen>
       final message = error is UpdateException
           ? error.message
           : 'განახლების შემოწმება ან ჩამოტვირთვა ვერ მოხერხდა.';
-      setState(() => _updateStatus = 'შემოწმება ვერ მოხერხდა');
       _showSnack(message);
     } finally {
-      if (mounted) setState(() => _updateBusy = false);
+      if (mounted) {
+        setState(() {
+          _updateBusy = false;
+          _updateProgress = null;
+        });
+      }
     }
   }
 
@@ -1089,17 +1091,14 @@ class _SettingsScreenState extends State<SettingsScreen>
           const Divider(color: AppTheme.glassBorder, height: 1),
           _SettingsTile(
             label: 'განახლების შემოწმება',
-            subtitle: _updateBusy
-                ? (_updateStatus ?? 'მიმდინარეობს…')
-                : (_updateStatus ?? 'შეამოწმე ახალი ვერსია'),
+            subtitle: 'შეამოწმე ახალი ვერსია',
             trailing: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
               child: _updateBusy
-                  ? const SizedBox(
+                  ? SizedBox(
                       key: ValueKey('update-progress'),
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      width: 48,
+                      child: LinearProgressIndicator(value: _updateProgress),
                     )
                   : const Icon(
                       key: ValueKey('update-icon'),

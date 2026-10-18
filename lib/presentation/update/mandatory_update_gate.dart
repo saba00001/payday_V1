@@ -200,28 +200,9 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
 
   @override
   Widget build(BuildContext context) {
-    final result = _checkResult;
     if (_showStartupSplash && _state == _GateState.checking) {
       return const _UpdateStatusScreen(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PaydayStartupMark(size: 88),
-            SizedBox(height: 20),
-            Text(
-              'PayDay',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-            ),
-            SizedBox(height: 8),
-            Text('განახლების შემოწმება…'),
-            SizedBox(height: 20),
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
-          ],
-        ),
+        child: _UpdateProgressMark(progress: null),
       );
     }
     if (_state == _GateState.upToDate ||
@@ -230,68 +211,79 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
         _state == _GateState.failed) {
       return widget.child;
     }
-    if (result == null) {
-      return const _UpdateStatusScreen(
-        child: Text('განახლების მონაცემები მიუწვდომელია.'),
-      );
-    }
+    final permissionRequired = _state == _GateState.permissionRequired;
+    final installerLaunched = _state == _GateState.installerLaunched;
+    final error = _error;
     return _UpdateStatusScreen(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Center(child: PaydayStartupMark(size: 84)),
-          const SizedBox(height: 16),
-          Text(
-            _state == _GateState.installerLaunched
-                ? 'დაასრულე განახლება'
-                : _state == _GateState.permissionRequired
-                ? 'საჭიროა ინსტალაციის ნებართვა'
-                : 'საჭიროა PayDay-ის განახლება',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-          ),
-          if (_error case final String error) ...[
-            const SizedBox(height: 12),
-            Text(error, textAlign: TextAlign.center),
-          ],
-          if (_state == _GateState.downloading) ...[
-            const SizedBox(height: 16),
-            LinearProgressIndicator(value: _downloadProgress),
-          ],
-          if (_state == _GateState.permissionRequired) ...[
-            const SizedBox(height: 12),
-            const Text(
-              'Android-ის პარამეტრებში ჩართე PayDay-იდან აპების ინსტალაციის ნებართვა.',
-              textAlign: TextAlign.center,
-            ),
-          ],
-          const SizedBox(height: 24),
-          if (_state == _GateState.permissionRequired)
-            FilledButton(
-              onPressed: _openPermissionSettings,
-              child: const Text('ნებართვის ჩართვა'),
-            )
-          else
-            FilledButton.icon(
-              onPressed: _state == _GateState.installerLaunched
-                  ? () => _checkForUpdate(force: true)
-                  : _downloadAndInstall,
-              icon: Icon(
-                _state == _GateState.installerLaunched
-                    ? Icons.refresh_rounded
-                    : Icons.download_rounded,
-              ),
-              label: Text(
-                _state == _GateState.installerLaunched
-                    ? 'ვერსიის შემოწმება'
-                    : 'ჩამოტვირთვა და განახლება',
-              ),
-            ),
-        ],
+      child: _UpdateProgressMark(
+        progress: _state == _GateState.downloading ? _downloadProgress : null,
+        showAction: true,
+        icon: permissionRequired
+            ? Icons.settings_rounded
+            : installerLaunched
+            ? Icons.refresh_rounded
+            : Icons.system_update_alt_rounded,
+        tooltip: error ??
+            (permissionRequired
+                ? 'ინსტალაციის ნებართვის ჩართვა'
+                : installerLaunched
+                ? 'განახლების ხელახლა შემოწმება'
+                : 'განახლების ჩამოტვირთვა და ინსტალაცია'),
+        onPressed: permissionRequired
+            ? _openPermissionSettings
+            : installerLaunched
+            ? () => _checkForUpdate(force: true)
+            : _state == _GateState.downloading
+            ? null
+            : _downloadAndInstall,
       ),
     );
   }
+}
+
+class _UpdateProgressMark extends StatelessWidget {
+  final double? progress;
+  final bool showAction;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  const _UpdateProgressMark({
+    required this.progress,
+    this.showAction = false,
+    this.icon = Icons.system_update_alt_rounded,
+    this.tooltip = 'განახლების შემოწმება',
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      const PaydayStartupMark(size: 88),
+      const SizedBox(height: 24),
+      SizedBox(
+        width: 220,
+        child: Semantics(
+          label: 'განახლების ჩამოტვირთვის პროგრესი',
+          child: LinearProgressIndicator(value: progress),
+        ),
+      ),
+      if (showAction) ...[
+        const SizedBox(height: 20),
+        IconButton.filled(
+          tooltip: tooltip,
+          onPressed: onPressed,
+          icon: Icon(icon),
+          style: IconButton.styleFrom(
+            backgroundColor: const Color(0xFF10B981),
+            foregroundColor: const Color(0xFF001A14),
+            minimumSize: const Size(56, 56),
+          ),
+        ),
+      ],
+    ],
+  );
 }
 
 class _UpdateStatusScreen extends StatelessWidget {

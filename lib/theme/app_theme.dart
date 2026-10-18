@@ -174,8 +174,8 @@ class AppTheme {
     ),
     cardTheme: CardThemeData(
       color: surfaceDark,
-      elevation: 3,
-      shadowColor: const Color(0x3300D4AA),
+      elevation: 4,
+      shadowColor: const Color(0x4400D4AA),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusL),
         side: const BorderSide(color: glassBorder, width: 1),
@@ -236,8 +236,10 @@ class AppTheme {
     ),
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
-        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
         TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
       },
     ),
   );
