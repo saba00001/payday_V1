@@ -223,14 +223,39 @@ void main() {
 
         final prefs = await SharedPreferences.getInstance();
         expect(prefs.getString('payday_objects_v1'), isNull);
-        final recovery = jsonDecode(
-          prefs.getString('payday_pre_reset_recovery_v1')!,
-        ) as Map<String, dynamic>;
+        final recovery =
+            jsonDecode(prefs.getString('payday_pre_reset_recovery_v1')!)
+                as Map<String, dynamic>;
         expect(recovery['reason'], 'confirmed-user-reset');
         expect(
           (recovery['data'] as Map<String, dynamic>)['payday_objects_v1'],
           corrupt,
         );
+      },
+    );
+
+    test(
+      'confirmed reset initializes raw preferences without schema migration',
+      () async {
+        const corrupt = '{broken-existing-record';
+        SharedPreferences.setMockInitialValues({
+          'payday_objects_v1': corrupt,
+          'payday_data_version': 0,
+        });
+        final storage = LocalStorageService();
+
+        await storage.resetUserData();
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('payday_objects_v1'), isNull);
+        final recovery =
+            jsonDecode(prefs.getString('payday_pre_reset_recovery_v1')!)
+                as Map<String, dynamic>;
+        expect(
+          (recovery['data'] as Map<String, dynamic>)['payday_objects_v1'],
+          corrupt,
+        );
+        expect(prefs.getInt('payday_data_version'), 0);
       },
     );
 

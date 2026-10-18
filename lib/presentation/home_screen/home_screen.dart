@@ -26,6 +26,8 @@ import './widgets/salary_metric_strip_widget.dart';
 import './widgets/today_work_section_widget.dart';
 
 class HomeScreen extends StatefulWidget {
+  static final ValueNotifier<bool> recoveryMode = ValueNotifier(false);
+
   const HomeScreen({super.key});
 
   @override
@@ -75,11 +77,15 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _init() async {
+    HomeScreen.recoveryMode.value = false;
     try {
       await _dataService.storage.init();
       if (!_dataService.storage.hadExistingDataAtInitialization) {
         if (!mounted) return;
-        setState(() => _showStartChoice = true);
+        setState(() {
+          _showStartChoice = true;
+          HomeScreen.recoveryMode.value = true;
+        });
         unawaited(_discoverLocalBackups());
         return;
       }
@@ -94,6 +100,7 @@ class _HomeScreenState extends State<HomeScreen>
           );
         }
       }
+      HomeScreen.recoveryMode.value = false;
       _refresh();
     } catch (error, stackTrace) {
       if (kDebugMode) {
@@ -106,6 +113,7 @@ class _HomeScreenState extends State<HomeScreen>
       if (!mounted) return;
       setState(() {
         _loadError = 'ლოკალური მონაცემების წაკითხვა ვერ მოხერხდა.';
+        HomeScreen.recoveryMode.value = true;
       });
       unawaited(_discoverLocalBackups());
     }
@@ -213,6 +221,7 @@ class _HomeScreenState extends State<HomeScreen>
       _showStartChoice = false;
       _backupInventory = null;
       _recoveryError = null;
+      HomeScreen.recoveryMode.value = false;
     });
     _refresh();
     if (!reminderRestored && mounted) {
@@ -249,7 +258,6 @@ class _HomeScreenState extends State<HomeScreen>
     });
     try {
       if (_loadError != null) {
-        await _dataService.storage.init();
         await _dataService.resetUserData();
       } else {
         await _dataService.reloadFromStorage();
@@ -259,6 +267,7 @@ class _HomeScreenState extends State<HomeScreen>
         _loadError = null;
         _showStartChoice = false;
         _backupInventory = null;
+        HomeScreen.recoveryMode.value = false;
       });
       _refresh();
     } catch (error, stackTrace) {
@@ -290,6 +299,7 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() {
         _loadError = null;
         _showStartChoice = false;
+        HomeScreen.recoveryMode.value = false;
       });
       _refresh();
     } catch (error) {

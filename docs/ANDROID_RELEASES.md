@@ -47,32 +47,29 @@ in PowerShell. Paste the result only into GitHub's secret field.
 
 `pubspec.yaml` uses Flutter's `major.minor.patch+buildNumber` format:
 
-The current project version is `1.1.0+7` in `pubspec.yaml`. Keep the public
-version and build number aligned with the Android APK version code. After the
-verified `v1.1.0` release is created, the workflow deletes historical release
-entries and Git tags, leaving only `v1.1.0` as a public release.
+The current project version is `1.1.2+9` in `pubspec.yaml`. Keep the public
+version and build number aligned with the Android APK version code.
 
 For a new public release:
 
 1. Update the semantic version and increase the Android build number. Each APK
    must have a higher Android version code than the currently published APK.
 2. Commit and push the changes to `main`.
-3. Push the matching version tag (for this build, `v1.1.0`) to run the signed
+3. Push the matching version tag (for this build, `v1.1.2`) to run the signed
    release workflow automatically. Alternatively, dispatch **Android signed
-   release** from `main`, set the release tag to `v1.1.0`, and set `source_ref`
+   release** from `main`, set the release tag to `v1.1.2`, and set `source_ref`
    to `main`.
 4. The workflow validates the version, requires all four signing secrets,
    verifies both the keystore and private-key passwords, builds the signed
    universal APK, checks it against the established signing-certificate digest
-   and pubspec build number, calculates the SHA-256 checksum, creates the
-   GitHub Release, and removes historical releases and tags.
+   and pubspec build number, calculates the SHA-256 checksum, and creates the
+   GitHub Release.
 
 5. Verify the Release is public and has exactly one `.apk` plus its matching
    `.apk.sha256` checksum file.
 
-The workflow keeps the existing releases until the new build passes tests,
-signature checks, and upload; historical releases and tags are removed only
-after the new release is successfully created. If the workflow reports a
+The workflow keeps existing releases and tags when publishing a new version.
+If the workflow reports a
 signing-key validation error, correct the corresponding repository Actions
 secret in GitHub Settings; never send keystore passwords through chat or commit
 them to the repository.

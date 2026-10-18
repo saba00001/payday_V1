@@ -50,6 +50,7 @@ class LocalStorageService {
   }
 
   Future<void> resetUserData() async {
+    _prefs ??= await SharedPreferences.getInstance();
     final prefs = _requirePrefs();
     final previousRawData = exportRawStorageState();
     try {

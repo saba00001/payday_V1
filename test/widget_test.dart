@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:payday/main.dart';
 import 'package:payday/presentation/home_screen/home_screen.dart';
 import 'package:payday/presentation/home_screen/recovery_start_screen.dart';
+import 'package:payday/widgets/app_navigation.dart';
 
 void main() {
   testWidgets('first launch offers recovery or new data', (
@@ -29,6 +30,7 @@ void main() {
     }
 
     expect(find.byType(RecoveryStartScreen), findsOneWidget);
+    expect(find.byType(AppNavigation), findsNothing);
     expect(find.text('მონაცემების აღდგენა'), findsOneWidget);
     expect(find.text('ახალი მონაცემების შექმნა'), findsOneWidget);
 
@@ -43,5 +45,6 @@ void main() {
     }
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.text('ავანსები ობიექტების მიხედვით'), findsOneWidget);
+    expect(find.byType(AppNavigation), findsOneWidget);
   });
 }
