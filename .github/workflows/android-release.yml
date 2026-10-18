@@ -136,12 +136,29 @@ jobs:
             echo "::error::The APK version code does not match the pubspec build number."
             exit 1
           fi
+
+      - name: Verify packaged launcher icon
+        run: |
+          AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt"
+          NEW_APK="build/app/outputs/flutter-apk/app-release.apk"
           ICON_BADGING="$("$AAPT" dump badging "$NEW_APK")"
-          if ! printf '%s\n' "$ICON_BADGING" |
-            grep -F "application-icon-65534:'res/mipmap-anydpi-v26/ic_launcher.xml'" >/dev/null ||
+          APP_ICON_PATH="$(printf '%s\n' "$ICON_BADGING" | sed -n "s/^application:.* icon='\([^']*\)'.*/\1/p" | head -n 1)"
+          if [ -z "$APP_ICON_PATH" ]; then
+            echo "::error::Could not resolve the application icon from the APK manifest."
+            exit 1
+          fi
+          ICON_XML="$("$AAPT" dump xmltree "$NEW_APK" "$APP_ICON_PATH")"
+          ICON_RESOURCES="$("$AAPT" dump resources "$NEW_APK")"
+          BACKGROUND_ID="$(printf '%s\n' "$ICON_XML" | sed -n 's/.*android:drawable.*=@0x\([[:xdigit:]][[:xdigit:]]*\).*/\1/p' | head -n 1)"
+          FOREGROUND_ID="$(printf '%s\n' "$ICON_XML" | sed -n 's/.*android:drawable.*=@0x\([[:xdigit:]][[:xdigit:]]*\).*/\1/p' | tail -n 1)"
+          if ! printf '%s\n' "$ICON_XML" | grep -F 'E: adaptive-icon' >/dev/null ||
             ! grep -F 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml >/dev/null ||
-            ! grep -F 'ic_payday_launcher_foreground' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml >/dev/null; then
-            echo "::error::The APK does not use the expected PayDay adaptive launcher icon."
+            ! grep -F 'ic_payday_launcher_foreground' android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml >/dev/null ||
+            [ -z "$BACKGROUND_ID" ] ||
+            [ -z "$FOREGROUND_ID" ] ||
+            ! printf '%s\n' "$ICON_RESOURCES" | grep -F "resource 0x$FOREGROUND_ID " | grep -F ':drawable/ic_payday_launcher_foreground:' >/dev/null ||
+            ! printf '%s\n' "$ICON_RESOURCES" | grep -F "resource 0x$BACKGROUND_ID " | grep -F ':color/payday_icon_background:' >/dev/null; then
+            echo "::error::The packaged application icon is not the expected PayDay adaptive launcher icon."
             exit 1
           fi
 
