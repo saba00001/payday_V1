@@ -2,8 +2,9 @@ import 'semantic_version.dart';
 
 final class UpdateException implements Exception {
   final String message;
+  final bool isConnectivityFailure;
 
-  const UpdateException(this.message);
+  const UpdateException(this.message, {this.isConnectivityFailure = false});
 
   @override
   String toString() => message;

@@ -147,11 +147,17 @@ void main() {
       await expectLater(
         repository.fetchLatestStableRelease(),
         throwsA(
-          isA<UpdateException>().having(
-            (error) => error.message,
-            'message',
-            contains('ინტერნეტთან'),
-          ),
+          isA<UpdateException>()
+              .having(
+                (error) => error.message,
+                'message',
+                contains('ინტერნეტთან'),
+              )
+              .having(
+                (error) => error.isConnectivityFailure,
+                'isConnectivityFailure',
+                isTrue,
+              ),
         ),
       );
     });
@@ -182,11 +188,13 @@ void main() {
             repository: 'payday-owner/payday-app',
           ).fetchLatestStableRelease(),
           throwsA(
-            isA<UpdateException>().having(
-              (error) => error.message,
-              'message',
-              contains('ლიმიტი'),
-            ),
+            isA<UpdateException>()
+                .having((error) => error.message, 'message', contains('ლიმიტი'))
+                .having(
+                  (error) => error.isConnectivityFailure,
+                  'isConnectivityFailure',
+                  isFalse,
+                ),
           ),
         );
       },
@@ -366,9 +374,28 @@ void main() {
   });
 
   group('Mandatory update gate', () {
-    testWidgets('offline check blocks app and retry can recover', (
-      tester,
-    ) async {
+    testWidgets(
+      'shows a short branded splash when update checks are disabled',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MandatoryUpdateGate(
+              enabled: false,
+              child: const Text('normal app'),
+            ),
+          ),
+        );
+
+        expect(find.text('PayDay'), findsOneWidget);
+        expect(find.text('განახლების შემოწმება…'), findsOneWidget);
+        expect(find.text('normal app'), findsNothing);
+
+        await tester.pump(const Duration(milliseconds: 850));
+        expect(find.text('normal app'), findsOneWidget);
+      },
+    );
+
+    testWidgets('offline check allows the normal app to open', (tester) async {
       final service = _FakeMandatoryService()..checkFailuresRemaining = 1;
       await tester.pumpWidget(
         MaterialApp(
@@ -382,18 +409,51 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('normal app'), findsNothing);
-      expect(find.text('განახლების შემოწმება ვერ მოხერხდა'), findsOneWidget);
-      await tester.tap(find.text('ხელახლა ცდა'));
+      expect(find.text('normal app'), findsOneWidget);
+      expect(find.text('განახლების შემოწმება ვერ მოხერხდა'), findsNothing);
+      expect(find.text('ჩამოტვირთვა და განახლება'), findsNothing);
+    });
+
+    testWidgets('online newer release still blocks the normal app', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MandatoryUpdateGate(
+            enabled: true,
+            updateService: _FakeMandatoryService(installedVersion: '1.0.0'),
+            child: const Text('normal app'),
+          ),
+        ),
+      );
       await tester.pump();
       await tester.pump();
 
       expect(find.text('normal app'), findsNothing);
       expect(find.text('ჩამოტვირთვა და განახლება'), findsOneWidget);
-      expect(find.byTooltip('მოგვიანებით'), findsNothing);
     });
 
-    testWidgets('shows the app only when the installed release is current', (
+    testWidgets('invalid release response still fails closed', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MandatoryUpdateGate(
+            enabled: true,
+            updateService: _FakeMandatoryService()
+              ..checkFailuresRemaining = 1
+              ..failureIsOffline = false,
+            child: const Text('normal app'),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('normal app'), findsNothing);
+      expect(find.text('განახლების შემოწმება ვერ მოხერხდა'), findsOneWidget);
+      expect(find.text('ხელახლა ცდა'), findsOneWidget);
+    });
+
+    testWidgets('current version opens without offering an update', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -522,6 +582,7 @@ class _MemoryTransfer implements UpdateTransfer {
 class _FakeMandatoryService implements MandatoryUpdateService {
   final String installedVersion;
   var checkFailuresRemaining = 0;
+  var failureIsOffline = true;
 
   _FakeMandatoryService({this.installedVersion = '1.0.0'});
 
@@ -529,7 +590,10 @@ class _FakeMandatoryService implements MandatoryUpdateService {
   Future<UpdateCheckResult> checkForUpdate() async {
     if (checkFailuresRemaining > 0) {
       checkFailuresRemaining--;
-      throw const UpdateException('network unavailable');
+      throw UpdateException(
+        'network unavailable',
+        isConnectivityFailure: failureIsOffline,
+      );
     }
     return UpdateCheckResult(
       installedVersion: installedVersion,

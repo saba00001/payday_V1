@@ -1,10 +1,13 @@
 # Android releases, updates, and local backups
 
 On Android release builds, PayDay checks `saba00001/payday_V1` for the latest
-stable GitHub Release before showing the normal app. If the check fails or a
-newer version is available, the app remains on the update screen until the
-check succeeds or the update is installed. Debug builds and non-Android
-platforms are not gated.
+stable GitHub Release before showing the normal app. If a newer version is
+available, access remains blocked until the update is installed. If the check
+cannot reach GitHub (for example, when the device is offline), PayDay opens
+normally and retries the check when the app returns to the foreground. Workday
+tracking, salary calculations, backups, and reminders do not require internet.
+The startup screen shows a short animated PayDay mark; debug builds and
+non-Android platforms do not perform update checks.
 
 ## Existing Android identity
 

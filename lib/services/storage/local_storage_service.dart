@@ -36,9 +36,15 @@ class LocalStorageService {
   static const int _currentDataVersion = 2;
 
   SharedPreferences? _prefs;
+  bool _hadExistingDataAtInitialization = false;
+
+  bool get hadExistingDataAtInitialization => _hadExistingDataAtInitialization;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    _hadExistingDataAtInitialization =
+        _backupKeys.any((key) => _prefs!.get(key) != null) ||
+        _prefs!.get(_legacyRecoveryKey) != null;
     await _checkDataVersion();
   }
 

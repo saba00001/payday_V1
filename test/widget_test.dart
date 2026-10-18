@@ -10,14 +10,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:payday/main.dart';
 import 'package:payday/presentation/home_screen/home_screen.dart';
+import 'package:payday/presentation/home_screen/recovery_start_screen.dart';
 
 void main() {
-  testWidgets('app starts on the home screen', (WidgetTester tester) async {
+  testWidgets('first launch offers recovery or new data', (
+    WidgetTester tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const MyApp());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 900));
+    for (
+      var attempt = 0;
+      attempt < 20 && find.byType(RecoveryStartScreen).evaluate().isEmpty;
+      attempt++
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
+    expect(find.byType(RecoveryStartScreen), findsOneWidget);
+    expect(find.text('მონაცემების აღდგენა'), findsOneWidget);
+    expect(find.text('ახალი მონაცემების შექმნა'), findsOneWidget);
+
+    await tester.tap(find.text('ახალი მონაცემების შექმნა'));
+    for (
+      var attempt = 0;
+      attempt < 30 &&
+          find.text('ავანსები ობიექტების მიხედვით').evaluate().isEmpty;
+      attempt++
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(find.byType(HomeScreen), findsOneWidget);
     expect(find.text('ავანსები ობიექტების მიხედვით'), findsOneWidget);
   });

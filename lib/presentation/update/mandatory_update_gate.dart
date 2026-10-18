@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../services/update/github_release.dart';
 import '../../services/update/update_installer.dart';
 import '../../services/update/update_service.dart';
+import '../../widgets/payday_startup_mark.dart';
 
 enum _GateState {
   checking,
@@ -12,6 +14,7 @@ enum _GateState {
   downloading,
   permissionRequired,
   installerLaunched,
+  offline,
 }
 
 class MandatoryUpdateGate extends StatefulWidget {
@@ -48,6 +51,10 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
     if (widget.enabled) {
       WidgetsBinding.instance.addObserver(this);
       _checkForUpdate();
+    } else {
+      Future<void>.delayed(const Duration(milliseconds: 850), () {
+        if (mounted) setState(() => _state = _GateState.upToDate);
+      });
     }
   }
 
@@ -87,10 +94,17 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
       });
     } catch (error) {
       if (!mounted) return;
+      final offline = error is UpdateException && error.isConnectivityFailure;
+      if (kDebugMode) {
+        debugPrint(
+          'PayDay update check ${offline ? 'offline' : 'failed'} '
+          '(${error.runtimeType}).',
+        );
+      }
       setState(() {
-        _state = _GateState.failed;
+        _state = offline ? _GateState.offline : _GateState.failed;
         _checkResult = null;
-        _error = _localizedError(error);
+        _error = offline ? null : _localizedError(error);
       });
     } finally {
       _checkingAgain = false;
@@ -168,7 +182,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
   @override
   Widget build(BuildContext context) {
     final result = _checkResult;
-    if (!widget.enabled || _state == _GateState.upToDate) {
+    if (_state == _GateState.upToDate || _state == _GateState.offline) {
       return widget.child;
     }
     if (_state == _GateState.checking) {
@@ -176,9 +190,20 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
+            PaydayStartupMark(size: 88),
             SizedBox(height: 20),
+            Text(
+              'PayDay',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+            ),
+            SizedBox(height: 8),
             Text('განახლების შემოწმება…'),
+            SizedBox(height: 20),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
           ],
         ),
       );
@@ -188,7 +213,7 @@ class _MandatoryUpdateGateState extends State<MandatoryUpdateGate>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 48),
+            const Icon(Icons.cloud_off_rounded, size: 48),
             const SizedBox(height: 16),
             const Text(
               'განახლების შემოწმება ვერ მოხერხდა',

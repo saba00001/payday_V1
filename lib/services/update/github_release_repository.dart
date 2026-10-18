@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -52,7 +53,7 @@ final class GitHubReleaseRepository implements ReleaseRepository {
               responseType: ResponseType.plain,
             ),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 8));
       final body = response.data;
       if (body is! String) {
         throw const UpdateException('GitHub-ის პასუხის ფორმატი არასწორია.');
@@ -86,6 +87,12 @@ final class GitHubReleaseRepository implements ReleaseRepository {
       }
       throw const UpdateException(
         'ინტერნეტთან დაკავშირება ვერ მოხერხდა. შეამოწმე კავშირი და სცადე თავიდან.',
+        isConnectivityFailure: true,
+      );
+    } on TimeoutException {
+      throw const UpdateException(
+        'ინტერნეტთან დაკავშირება ვერ მოხერხდა. შეამოწმე კავშირი და სცადე თავიდან.',
+        isConnectivityFailure: true,
       );
     } on FormatException {
       throw const UpdateException('GitHub-ის პასუხის ფორმატი არასწორია.');

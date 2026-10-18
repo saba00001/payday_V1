@@ -1,10 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/app_export.dart';
 import '../../core/georgian_date_utils.dart';
+import '../../services/backup/backup_document.dart';
+import '../../services/backup/backup_service.dart';
+import '../../services/reminder_service.dart';
 import '../../routes/app_routes.dart';
+import '../settings_screen/recovery_confirmation_dialog.dart';
+import 'recovery_start_screen.dart';
 import './widgets/add_payment_sheet_widget.dart';
 import './widgets/add_advance_sheet_widget.dart';
 import './widgets/advance_management_widget.dart';
@@ -27,8 +34,13 @@ class _HomeScreenState extends State<HomeScreen>
     with AutomaticKeepAliveClientMixin {
   // TODO: Replace with Riverpod/Bloc for production
   final _dataService = DataService(LocalStorageService());
+  late final _backupService = BackupService(_dataService.storage);
   bool _initialized = false;
+  bool _showStartChoice = false;
+  bool _recoveryBusy = false;
   String? _loadError;
+  String? _recoveryError;
+  LocalBackupInventory? _backupInventory;
   bool _markingWorked = false; // Guard against rapid double-tap
 
   WorkObjectModel? _todayObject;
@@ -62,7 +74,14 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _init() async {
     try {
-      await _dataService.init();
+      await _dataService.storage.init();
+      if (!_dataService.storage.hadExistingDataAtInitialization) {
+        if (!mounted) return;
+        setState(() => _showStartChoice = true);
+        unawaited(_discoverLocalBackups());
+        return;
+      }
+      await _dataService.reloadFromStorage();
       _refresh();
     } catch (error, stackTrace) {
       if (kDebugMode) {
@@ -74,12 +93,209 @@ class _HomeScreenState extends State<HomeScreen>
       }
       if (!mounted) return;
       setState(() {
-        _loadError =
-            'ლოკალური მონაცემების წაკითხვა ვერ მოხერხდა. '
-            'მონაცემები არ წაშლილა. გახსენი პარამეტრები, '
-            'შეამოწმე backup და აირჩიე აღდგენა ან ახალი მონაცემებით დაწყება.';
+        _loadError = 'ლოკალური მონაცემების წაკითხვა ვერ მოხერხდა.';
       });
+      unawaited(_discoverLocalBackups());
     }
+  }
+
+  Future<void> _discoverLocalBackups() async {
+    try {
+      final inventory = await _backupService.discoverInternalBackups();
+      if (mounted) setState(() => _backupInventory = inventory);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          'PayDay startup backup discovery failed (${error.runtimeType}).',
+        );
+      }
+      if (mounted) {
+        setState(
+          () => _recoveryError =
+              'შიდა სარეზერვო ასლების მოძიება ვერ მოხერხდა. '
+              'არსებული მონაცემები უცვლელია.',
+        );
+      }
+    }
+  }
+
+  Future<void> _restoreExternalBackup() async {
+    if (_recoveryBusy) return;
+    setState(() {
+      _recoveryBusy = true;
+      _recoveryError = null;
+    });
+    try {
+      final backup = await _backupService.selectBackup();
+      if (!mounted || backup == null) return;
+      await _restoreBackup(backup);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _recoveryError = _localizedRecoveryError(error));
+      }
+    } finally {
+      if (mounted) setState(() => _recoveryBusy = false);
+    }
+  }
+
+  Future<void> _restoreLocalBackup(LocalBackupEntry entry) async {
+    if (_recoveryBusy) return;
+    setState(() {
+      _recoveryBusy = true;
+      _recoveryError = null;
+    });
+    try {
+      await _restoreBackup(entry.document);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _recoveryError = _localizedRecoveryError(error));
+      }
+    } finally {
+      if (mounted) setState(() => _recoveryBusy = false);
+    }
+  }
+
+  Future<void> _restoreBackup(BackupDocument backup) async {
+    if (_loadError != null) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppTheme.surfaceDark,
+          title: const Text(
+            'მონაცემების აღდგენა',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            'არჩეული ასლი შეიქმნა ${_formatBackupDate(backup.createdAt)}. '
+            'აღდგენამდე დაზიანებული მიმდინარე მონაცემების შიდა ასლი '
+            'შეინახება. გაგრძელდეს?',
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('გაუქმება'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('აღდგენა'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
+    await _backupService.restore(backup);
+    final reminderRestored = await _syncRestoredReminder();
+    await _dataService.reloadFromStorage();
+    if (!mounted) return;
+    setState(() {
+      _loadError = null;
+      _showStartChoice = false;
+      _backupInventory = null;
+      _recoveryError = null;
+    });
+    _refresh();
+    if (!reminderRestored && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'მონაცემები აღდგა, თუმცა შეხსენება ვერ ჩაირთო. '
+            'შეამოწმე პარამეტრები.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<bool> _syncRestoredReminder() async {
+    final storage = _dataService.storage;
+    if (!storage.loadReminderEnabled()) return ReminderService.cancelAlarm();
+    if (!await ReminderService.canPostNotifications()) return false;
+    return ReminderService.scheduleAlarm(
+      hour: storage.loadReminderHour(),
+      minute: storage.loadReminderMinute(),
+    );
+  }
+
+  Future<void> _startNewData() async {
+    if (_recoveryBusy) return;
+    if (_loadError != null) {
+      final confirmed = await showStartFreshConfirmation(context);
+      if (confirmed != true || !mounted) return;
+    }
+    setState(() {
+      _recoveryBusy = true;
+      _recoveryError = null;
+    });
+    try {
+      if (_loadError != null) {
+        await _dataService.storage.init();
+        await _backupService.createInternalSnapshot();
+        await _dataService.resetUserData();
+      } else {
+        await _dataService.reloadFromStorage();
+      }
+      if (!mounted) return;
+      setState(() {
+        _loadError = null;
+        _showStartChoice = false;
+        _backupInventory = null;
+      });
+      _refresh();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _recoveryError = _localizedRecoveryError(error));
+      }
+    } finally {
+      if (mounted) setState(() => _recoveryBusy = false);
+    }
+  }
+
+  Future<void> _retryStorageRead() async {
+    if (_recoveryBusy) return;
+    setState(() {
+      _recoveryBusy = true;
+      _recoveryError = null;
+      _backupInventory = null;
+    });
+    try {
+      await _dataService.storage.init();
+      await _dataService.reloadFromStorage();
+      if (!mounted) return;
+      setState(() {
+        _loadError = null;
+        _showStartChoice = false;
+      });
+      _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _recoveryError = _localizedRecoveryError(error));
+      await _discoverLocalBackups();
+    } finally {
+      if (mounted) setState(() => _recoveryBusy = false);
+    }
+  }
+
+  String _localizedRecoveryError(Object error) {
+    if (error is LocalStorageException) return error.message;
+    if (error is FormatException) return error.message;
+    if (kDebugMode) {
+      debugPrint(
+        'PayDay startup recovery action failed (${error.runtimeType}).',
+      );
+    }
+    return 'მონაცემების აღდგენა ვერ მოხერხდა. '
+        'მიმდინარე მონაცემები არ წაშლილა; სცადე სხვა backup.';
+  }
+
+  String _formatBackupDate(DateTime date) {
+    final local = date.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}.'
+        '${local.month.toString().padLeft(2, '0')}.${local.year} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
   }
 
   void _refresh() {
@@ -320,6 +536,18 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (_showStartChoice || _loadError != null) {
+      return RecoveryStartScreen(
+        recovering: _loadError != null,
+        busy: _recoveryBusy,
+        error: _recoveryError,
+        backupInventory: _backupInventory,
+        onRestore: _restoreExternalBackup,
+        onRestoreLocal: _restoreLocalBackup,
+        onCreateNew: _startNewData,
+        onRetry: _retryStorageRead,
+      );
+    }
     final now = DateTime.now();
     final dateLabel = 'დღეს, ${GeorgianDateUtils.formatDate(now)}';
 

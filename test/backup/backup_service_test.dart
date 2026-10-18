@@ -102,11 +102,16 @@ void main() {
 
         await service.init();
 
+        expect(storage.hadExistingDataAtInitialization, isFalse);
         expect(service.objects, isEmpty);
         expect(service.workDays, isEmpty);
         expect(service.transactions, isEmpty);
         expect(service.advances, isEmpty);
         expect(service.getTotalSalary()['remaining'], 0);
+
+        final nextLaunchStorage = LocalStorageService();
+        await nextLaunchStorage.init();
+        expect(nextLaunchStorage.hadExistingDataAtInitialization, isTrue);
       },
     );
 
@@ -141,6 +146,7 @@ void main() {
 
         await service.init();
 
+        expect(storage.hadExistingDataAtInitialization, isTrue);
         expect(service.objects.single.name, 'ძველი ობიექტი');
         expect(service.advances.single.objectId, isEmpty);
         expect(service.workDays.single.dailyWage, 80);
@@ -192,6 +198,7 @@ void main() {
         final storage = LocalStorageService();
         await storage.init();
 
+        expect(storage.hadExistingDataAtInitialization, isTrue);
         expect(
           () => storage.loadObjects(),
           throwsA(isA<LocalStorageException>()),
