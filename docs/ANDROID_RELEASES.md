@@ -163,3 +163,8 @@ receiver restores it after reboot, time changes, timezone changes, and an app
 update. Android 12+ exact-alarm access and Android 13+ notification permission
 can be managed in Settings. Android may still restrict exact timing or
 notifications when a permission is denied or battery policies intervene.
+In PayDay's **Settings → Notifications**, verify notification permission and
+the reminder notification channel are enabled. Use **Test reminder** to
+confirm that notifications reach the device; opening Android settings and
+returning to PayDay refreshes permission state and reschedules an enabled
+reminder. The **Check for updates** action is under **Settings → About**.
